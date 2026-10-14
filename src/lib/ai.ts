@@ -140,10 +140,59 @@ async function openaiFetch(cfg: ModelConfig, path: string, body?: object): Promi
   throw new ProviderError(`The AI provider said: ${detail || res.statusText}`, res.status);
 }
 
+/** Read an OpenAI-style server-sent-event stream, calling onText for each piece of the answer. */
+async function readSse(res: Response, onText: (t: string) => void): Promise<OpenAIUsage | undefined> {
+  const reader = res.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let usage: OpenAIUsage | undefined;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        const data = line.replace(/^data:\s*/, "").trim();
+        if (!line.startsWith("data:") || !data || data === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string | null } }[]; usage?: OpenAIUsage };
+          const piece = chunk.choices?.[0]?.delta?.content;
+          if (piece) onText(piece);
+          if (chunk.usage) usage = chunk.usage;
+        } catch {}
+      }
+    }
+  } catch {
+    throw new ProviderError("The connection to the AI provider dropped in the middle of the answer. Please try again.", 503);
+  }
+  return usage;
+}
+
+/**
+ * One chat request, streamed. Streaming keeps the connection busy while a reasoning model
+ * thinks for a long time, so slow answers (like planning a lesson) don't time out.
+ * A dropped connection is retried once.
+ */
 async function openaiChat(cfg: ModelConfig, messages: ChatMessage[], extra: object = {}) {
-  const res = await openaiFetch(cfg, "/chat/completions", { model: cfg.model, messages, ...extra });
-  const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[]; usage?: OpenAIUsage };
-  return { text: data.choices?.[0]?.message?.content ?? "", usage: fromOpenAIUsage(data.usage) };
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await openaiFetch(cfg, "/chat/completions", {
+        model: cfg.model,
+        messages,
+        ...extra,
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+      let text = "";
+      const usage = await readSse(res, (t) => (text += t));
+      return { text, usage: fromOpenAIUsage(usage) };
+    } catch (e) {
+      if (attempt === 0 && e instanceof ProviderError && e.status === 503) continue;
+      throw e;
+    }
+  }
 }
 
 // ---------- JSON answers ----------
@@ -353,27 +402,7 @@ export async function streamTutor(opts: {
     stream: true,
     stream_options: { include_usage: true },
   });
-  const reader = res.body!.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  let usage: OpenAIUsage | undefined;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
-    for (const line of lines) {
-      const data = line.replace(/^data:\s*/, "").trim();
-      if (!line.startsWith("data:") || !data || data === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string | null } }[]; usage?: OpenAIUsage };
-        const piece = chunk.choices?.[0]?.delta?.content;
-        if (piece) emit(piece);
-        if (chunk.usage) usage = chunk.usage;
-      } catch {}
-    }
-  }
+  const usage = await readSse(res, emit);
   recordUsage("chat", cfg, fromOpenAIUsage(usage));
   return full;
 }

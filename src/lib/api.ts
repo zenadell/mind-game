@@ -18,7 +18,9 @@ export function errorResponse(e: unknown) {
   if (e instanceof NotFound) return NextResponse.json({ error: e.message }, { status: 404 });
   if (e instanceof ProviderError) return NextResponse.json({ error: e.message }, { status: e.status >= 500 ? 502 : 503 });
   console.error(e);
-  return NextResponse.json({ error: "Something went wrong. Try again." }, { status: 500 });
+  // Show the real reason, so problems can be understood and reported.
+  const reason = e instanceof Error ? e.message : String(e);
+  return NextResponse.json({ error: `Something went wrong: ${reason.slice(0, 300)}. Try again.` }, { status: 500 });
 }
 
 export type Ctx = { params: Promise<{ id: string }> };

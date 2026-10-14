@@ -113,7 +113,7 @@ export function LessonView(p: Props) {
         <div className="bar thin" aria-label={`${passed.filter(Boolean).length} of ${n} steps done`}>
           <span style={{ width: `${((passed.filter(Boolean).length + (teachback ? 1 : 0) + doneEx) / (n + 1 + p.exercises.length)) * 100}%` }} />
         </div>
-        <nav className="steps" aria-label="Lesson steps">
+        {n > 0 && <nav className="steps" aria-label="Lesson steps">
           {steps.map((c, i) => (
             <button
               key={c.id}
@@ -135,7 +135,7 @@ export function LessonView(p: Props) {
           >
             💻 Practice {p.exercises.length ? `${doneEx}/${p.exercises.length}` : ""}
           </button>
-        </nav>
+        </nav>}
 
         {completed && (
           <div className="card celebrate">
@@ -204,7 +204,7 @@ export function LessonView(p: Props) {
           </>
         )}
 
-        {step === TEACH && (
+        {n > 0 && step === TEACH && (
           <section className="card step">
             <h2>🗣 Teach it back</h2>
             <p className="big">
@@ -236,7 +236,7 @@ export function LessonView(p: Props) {
           </section>
         )}
 
-        {step === PRACTICE && (
+        {n > 0 && step === PRACTICE && (
           <>
             {p.exercises.length === 0 && (
               <section className="card">
