@@ -81,6 +81,7 @@ function ModelSection({
   const p = presets.find((x) => x.id === preset);
   const form = () => ({
     role,
+    preset,
     protocol,
     baseUrl,
     apiKey,

@@ -30,6 +30,9 @@ export const PRESETS: { id: string; label: string; protocol: Protocol; baseUrl: 
   { id: "custom", label: "Other (OpenAI-compatible)", protocol: "openai", baseUrl: "" },
 ];
 
+/** DeepSeek is the default provider. */
+const DEFAULT_OPENAI_URL = "https://api.deepseek.com";
+
 // Known prices (USD per million tokens), used when no price is set.
 const KNOWN_PRICES: Record<string, [number, number]> = {
   "claude-opus-5-5": [4, 20],
@@ -89,13 +92,15 @@ export function getModelConfig(role: Role): ModelConfig {
     merged.apiKey = process.env.ANTHROPIC_API_KEY;
   }
   const protocol = merged.protocol ?? "openai";
+  // No address set yet: use the default provider for that API style.
+  const defaultUrl = protocol === "anthropic" ? "https://api.anthropic.com" : DEFAULT_OPENAI_URL;
   const model =
     merged.model ??
     (protocol === "anthropic" ? (role === "tutor" ? "claude-opus-5-5" : "claude-haiku-5-5") : "");
   const known = KNOWN_PRICES[model];
   return {
     protocol,
-    baseUrl: (merged.baseUrl ?? (protocol === "anthropic" ? "https://api.anthropic.com" : "")).replace(/\/+$/, ""),
+    baseUrl: (merged.baseUrl ?? defaultUrl).replace(/\/+$/, ""),
     apiKey: merged.apiKey ?? "",
     model,
     priceIn: merged.priceIn ?? known?.[0] ?? null,
@@ -125,8 +130,7 @@ export function saveModelConfig(role: Role, value: Stored) {
 export function publicModelConfig(role: Role) {
   const c = getModelConfig(role);
   const stored = readStored(role);
-  const preset =
-    PRESETS.find((p) => p.protocol === c.protocol && p.baseUrl && p.baseUrl === c.baseUrl)?.id ?? (c.baseUrl ? "custom" : "deepseek");
+  const preset = PRESETS.find((p) => p.protocol === c.protocol && p.baseUrl && p.baseUrl === c.baseUrl)?.id ?? "custom";
   return {
     preset,
     protocol: c.protocol,

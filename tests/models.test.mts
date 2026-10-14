@@ -57,3 +57,9 @@ test("cost uses configured prices; unknown prices cost 0", () => {
   assert.equal(costOf({ priceIn: 1, priceOut: 2 }, { input: 1_000_000, output: 1_000_000, cacheRead: 0, cacheWrite: 0 }), 3);
   assert.equal(costOf({ priceIn: null, priceOut: null }, { input: 5, output: 5, cacheRead: 0, cacheWrite: 0 }), 0);
 });
+
+test("no address saved: falls back to DeepSeek's address", () => {
+  M.saveModelConfig("tutor", { protocol: "openai", baseUrl: "", apiKey: "sk-1", model: "deepseek-flash" });
+  const pub = M.publicModelConfig("tutor");
+  assert.deepEqual([M.getModelConfig("tutor").baseUrl, pub.preset], ["https://api.deepseek.com", "deepseek"]);
+});

@@ -111,6 +111,7 @@ function anthropicError(e: unknown): never {
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 async function openaiFetch(cfg: ModelConfig, path: string, body?: object): Promise<Response> {
+  if (!cfg.baseUrl) throw new ProviderError("No API address is set. Pick a provider in ⚙️ Settings.", 400);
   let res: Response;
   try {
     res = await fetch(`${cfg.baseUrl}${path}`, {
@@ -133,6 +134,8 @@ async function openaiFetch(cfg: ModelConfig, path: string, body?: object): Promi
   if (res.status === 401 || res.status === 403)
     throw new ProviderError("The API key was rejected. Check it in ⚙️ Settings.", res.status);
   if (res.status === 429) throw new ProviderError("The tutor is busy (or out of credit). Wait a minute and try again.", 429);
+  if ((res.status === 400 || res.status === 404) && /model/i.test(detail))
+    throw new ProviderError(`The model name "${cfg.model}" wasn't accepted. In ⚙️ Settings press "Load models" and pick one from the list. (${detail.replace(/\s*\(request_id[^)]*\)/, "")})`, 400);
   if (res.status === 402) throw new ProviderError("Your AI account is out of credit. Top it up with the provider.", 402);
   throw new ProviderError(`The AI provider said: ${detail || res.statusText}`, res.status);
 }
