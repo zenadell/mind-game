@@ -37,6 +37,11 @@ export function AnswerBox({
           {busy ? "Checking…" : submitLabel}
         </button>
         <MicButton onText={(t) => setText((old) => (old ? old + " " : "") + t)} />
+        {text && !busy && (
+          <button type="button" className="btn ghost" onClick={() => setText("")}>
+            Clear
+          </button>
+        )}
       </div>
     </form>
   );

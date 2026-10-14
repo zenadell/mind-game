@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { askJson } from "./ai";
 import { NotFound, markActive } from "./core";
 import {
+  CAN_REPLY,
   CHECK_SYSTEM,
   CheckShape,
   OUTLINE_SYSTEM,
@@ -217,7 +218,11 @@ export function stepContext(title: string, c: StepContent): string {
     .join("\n\n");
 }
 
-export async function gradeStepCheck(stepId: number, question: string, answerKey: string, answer: string) {
+export type Turn = { who: "learner" | "tutor"; text: string };
+
+/** Grade an answer to a step's check. `history` holds earlier tries and feedback, so a reply
+ *  to the tutor's follow-up question is judged in context. */
+export async function gradeStepCheck(stepId: number, question: string, answerKey: string, answer: string, history: Turn[] = []) {
   const step = db().select().from(schema.steps).where(eq(schema.steps.id, stepId)).get();
   if (!step) throw new NotFound("step");
   const content = await stepContent(stepId);
@@ -225,7 +230,15 @@ export async function gradeStepCheck(stepId: number, question: string, answerKey
     purpose: "grade-check",
     role: "grader",
     system: CHECK_SYSTEM,
-    prompt: `<lesson_piece>\n${stepContext(step.title, content)}\n</lesson_piece>\n\nQuestion: ${question}\nAnswer key: ${answerKey}\n\nLearner answer: ${answer}`,
+    prompt: [
+      `<lesson_piece>\n${stepContext(step.title, content)}\n</lesson_piece>`,
+      `Question: ${question}\nAnswer key: ${answerKey}`,
+      history.length ? `Conversation so far:\n${history.map((t) => `${t.who === "learner" ? "Learner" : "You (tutor)"}: ${t.text}`).join("\n")}` : "",
+      `Learner answer: ${answer}`,
+      CAN_REPLY,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     shape: CheckShape,
     maxTokens: 1500,
   });

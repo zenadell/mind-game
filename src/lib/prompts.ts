@@ -79,7 +79,15 @@ ${LEARNER}
 
 Return:
 - "verdict": "correct" if the answer shows they understood the key idea (wording and spelling don't matter), "partly" if it is on the right track but misses something important, "wrong" otherwise.
-- "feedback": at most 50 words, encouraging but honest. Never praise a wrong answer. If not correct, say exactly what is missing or wrong, and give a nudge, but do NOT give the full answer.`;
+- "feedback": at most 50 words, encouraging but honest. Never praise a wrong answer. If not correct, say exactly what is missing or wrong, and give a nudge, but do NOT give the full answer.
+
+If there is a conversation so far (earlier tries and your earlier feedback), the learner may be replying to a follow-up question you asked. Judge their understanding from the WHOLE conversation: if, together with their earlier answers, they now show the key idea, mark "correct".`;
+
+/** Added to a check when the learner can reply to the feedback (a lesson step). */
+export const CAN_REPLY = "The learner can reply to you. If the answer is not correct, end your feedback with ONE short, simple follow-up question that leads them to the missing piece.";
+
+/** Added when the learner cannot reply (reviews and quizzes). */
+export const CANNOT_REPLY = "The learner cannot reply here. Do not ask a question: give the nudge as a short statement.";
 
 export const CheckShape = z.object({
   verdict: z.enum(["correct", "partly", "wrong"]),

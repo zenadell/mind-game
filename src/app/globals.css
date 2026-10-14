@@ -313,3 +313,14 @@ a.plan-card:hover { border-color: var(--primary); transform: translateY(-1px); }
 .sources a { margin-right: 10px; }
 .goal { color: var(--muted); margin-top: -4px; }
 .preview .output { margin: 0; border-radius: 0; }
+
+/* "Your turn" conversation */
+.thread { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+.bubble { padding: 10px 14px; border-radius: 14px; max-width: 92%; line-height: 1.6; }
+.bubble .who { display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; opacity: 0.85; }
+.bubble.learner { align-self: flex-end; background: var(--primary-soft); border-bottom-right-radius: 4px; }
+.bubble.tutor { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 4px; }
+.bubble.tutor.correct { background: var(--ok-soft); color: var(--ok); }
+.bubble.tutor.partly { background: var(--warn-soft); color: var(--warn); }
+.bubble.tutor.wrong { background: var(--err-soft); color: var(--err); }
+.bubble .btn { margin-top: 6px; padding: 4px 10px; font-size: 0.85rem; }

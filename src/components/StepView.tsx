@@ -10,6 +10,11 @@ import { ReadAloud } from "./Speech";
 
 export type StepInfo = { id: number; title: string; goal: string; passed: boolean };
 type Verdict = { verdict: "correct" | "partly" | "wrong"; feedback: string };
+/** The "Your turn" conversation: the learner's tries and the tutor's replies. */
+type Turn = { who: "learner" | "tutor"; text: string; verdict?: Verdict["verdict"] };
+
+/** Misses before the tutor re-explains the whole step another way. */
+const MISSES_BEFORE_REEXPLAIN = 3;
 
 /** Ask the tutor chat (next to the lesson) to explain something more. */
 export function askTutor(text: string) {
@@ -39,8 +44,7 @@ export function StepView({
   const [code, setCode] = useState("");
   const [again, setAgain] = useState<Reexplain | null>(null);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Verdict | null>(null);
-  const [wrong, setWrong] = useState<string[]>([]);
+  const [thread, setThread] = useState<Turn[]>([]);
   const [passed, setPassed] = useState(step.passed);
   const lastPiece = useRef<HTMLDivElement>(null);
 
@@ -58,8 +62,7 @@ export function StepView({
   useEffect(() => {
     setContent(null);
     setAgain(null);
-    setResult(null);
-    setWrong([]);
+    setThread([]);
     setPassed(step.passed);
     setShown(step.passed ? 99 : 1);
     load();
@@ -76,28 +79,33 @@ export function StepView({
 
   const answer = async (text: string) => {
     setBusy(true);
+    setThread((t) => [...t, { who: "learner", text }]);
     try {
-      const r = await post<Verdict>(`/api/step/${step.id}/check`, { question, answerKey, answer: text });
-      setResult(r);
+      const history = thread.map(({ who, text }) => ({ who, text }));
+      const r = await post<Verdict>(`/api/step/${step.id}/check`, { question, answerKey, answer: text, history });
+      const next: Turn[] = [...thread, { who: "learner", text }, { who: "tutor", text: r.feedback, verdict: r.verdict }];
+      setThread(next);
       if (r.verdict === "correct") {
         setPassed(true);
         onPassed();
-      } else {
-        const all = [...wrong, text];
-        setWrong(all);
-        if (all.length >= 2) {
-          // Two misses: the tutor explains it another way, with a new question.
-          const re = await post<Reexplain>(`/api/step/${step.id}/reexplain`, { wrongAnswers: all });
-          setAgain(re);
-          setWrong([]);
-          setResult({ verdict: r.verdict, feedback: r.feedback + " Let’s look at it another way first. 👆" });
-        }
+      } else if (next.filter((t) => t.who === "tutor" && t.verdict !== "correct").length >= MISSES_BEFORE_REEXPLAIN) {
+        // Still stuck: the tutor explains the step another way, with a new, easier question.
+        const re = await post<Reexplain>(`/api/step/${step.id}/reexplain`, {
+          wrongAnswers: next.filter((t) => t.who === "learner").map((t) => t.text),
+        });
+        setAgain(re);
+        setThread([
+          { who: "tutor", text: "Let’s look at it another way. Read “Another way to see it” above, then try this new question." },
+        ]);
       }
     } catch (e) {
+      setThread((t) => t.slice(0, -1)); // let them send it again
       setError((e as Error).message);
     }
     setBusy(false);
   };
+  const solved = thread.some((t) => t.verdict === "correct");
+  const missed = thread.some((t) => t.verdict && t.verdict !== "correct");
 
   const pieces: Piece[] = [];
   if (content) {
@@ -267,16 +275,50 @@ export function StepView({
             <InlineMd>{question}</InlineMd>
           </p>
           <ReadAloud text={question} label="Read question" />
-          {passed && result?.verdict !== "correct" && (
-            <p className="ok">✓ You already got this one. You can move on, or answer again for practice.</p>
+          {passed && !solved && <p className="ok">✓ You already got this one. You can move on, or answer again for practice.</p>}
+
+          {thread.length > 0 && (
+            <div className="thread" aria-live="polite">
+              {thread.map((t, i) =>
+                t.who === "learner" ? (
+                  <div key={i} className="bubble learner">
+                    <span className="who">You</span>
+                    {t.text}
+                  </div>
+                ) : (
+                  <div key={i} className={`bubble tutor ${t.verdict ?? ""}`}>
+                    <span className="who">
+                      {t.verdict === "correct" ? "✓ Right!" : t.verdict === "partly" ? "◐ Almost" : t.verdict === "wrong" ? "✗ Not yet" : "Tutor"}
+                    </span>
+                    <InlineMd>{t.text}</InlineMd>
+                    {t.verdict && t.verdict !== "correct" && (
+                      <div>
+                        <ReadAloud text={t.text} label="Listen" />
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
+              {busy && <div className="bubble tutor">Thinking…</div>}
+            </div>
           )}
-          <AnswerBox placeholder="Type or speak your answer, in your own words…" busy={busy} onSubmit={answer} />
-          {result && (
-            <p className={result.verdict === "correct" ? "ok" : result.verdict === "partly" ? "warn" : "error"}>
-              <b>{result.verdict === "correct" ? "✓ Right! " : result.verdict === "partly" ? "◐ Almost. " : "✗ Not yet. "}</b>
-              <InlineMd>{result.feedback}</InlineMd>
-              {result.verdict !== "correct" && <span className="small"> (This question will also come back in tomorrow’s review.)</span>}
+
+          {solved ? (
+            <p className="ok">
+              <b>Well done!</b> You can go to the next step below.
             </p>
+          ) : (
+            <AnswerBox
+              key={again ? "again" : "first"}
+              placeholder={thread.length ? "Reply to your tutor, in your own words…" : "Type or speak your answer, in your own words…"}
+              submitLabel={thread.length ? "Reply" : "Submit"}
+              busy={busy}
+              onSubmit={answer}
+              clearOnSubmit
+            />
+          )}
+          {missed && !solved && (
+            <p className="small muted">This question will also come back in tomorrow’s review, to help it stick.</p>
           )}
         </div>
       )}

@@ -2,7 +2,7 @@ import { and, asc, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson } from "./ai";
 import { dayKey, markActive } from "./core";
-import { CHECK_SYSTEM, CheckShape } from "./prompts";
+import { CANNOT_REPLY, CHECK_SYSTEM, CheckShape } from "./prompts";
 
 // Spaced repetition: anything answered wrong comes back after 1 day, then 3, then 7.
 // A wrong answer during review starts the item again from 1 day.
@@ -109,7 +109,7 @@ export async function answerReview(id: number, answer: string) {
       purpose: "grade-review",
       role: "grader",
       system: CHECK_SYSTEM,
-      prompt: `<lesson_piece>\n${r.context}\n</lesson_piece>\n\nQuestion: ${r.question}${r.code ? `\n\`\`\`js\n${r.code}\n\`\`\`` : ""}\nAnswer key: ${r.answerKey}\n\nLearner answer: ${answer}`,
+      prompt: `<lesson_piece>\n${r.context}\n</lesson_piece>\n\nQuestion: ${r.question}${r.code ? `\n\`\`\`js\n${r.code}\n\`\`\`` : ""}\nAnswer key: ${r.answerKey}\n\nLearner answer: ${answer}\n\n${CANNOT_REPLY}`,
       shape: CheckShape,
       maxTokens: 1500,
     });

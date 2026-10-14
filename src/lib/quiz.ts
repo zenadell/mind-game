@@ -3,7 +3,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ProviderError, askJson } from "./ai";
 import { NotFound, allQuizBlocks, lessonList, markActive } from "./learning";
-import { CHECK_SYSTEM, CheckShape, QUIZ_SYSTEM, QuizShape, type QuizQuestion } from "./prompts";
+import { CANNOT_REPLY, CHECK_SYSTEM, CheckShape, QUIZ_SYSTEM, QuizShape, type QuizQuestion } from "./prompts";
 import { scheduleReview } from "./review";
 
 export const PASS_MARK = 0.7;
@@ -136,7 +136,7 @@ export async function submitQuiz(quizId: number, answers: string[]) {
         purpose: "grade-quiz",
         role: "grader",
         system: CHECK_SYSTEM,
-        prompt: `Question: ${q.question}\nAnswer key: ${q.answer_key}\n\nLearner answer: ${a}`,
+        prompt: `Question: ${q.question}\nAnswer key: ${q.answer_key}\n\nLearner answer: ${a}\n\n${CANNOT_REPLY}`,
         shape: CheckShape,
         maxTokens: 1500,
       });
