@@ -5,7 +5,7 @@ import { post } from "@/lib/client";
 import { outputText, runCode, type RunResult } from "@/lib/sandbox";
 import { AnswerBox } from "./AnswerBox";
 import { CodeBox, Output, splitInputs } from "./CodeBox";
-import { Markdown } from "./Markdown";
+import { InlineMd, Markdown } from "./Markdown";
 import { ReadAloud } from "./Speech";
 
 export type ExState = {
@@ -194,7 +194,9 @@ export function ExerciseCard({ ex, onChange }: { ex: Exercise; onChange: (s: ExS
       )}
 
       {check?.results && <Output result={{ ...check, logs: [] }} />}
-      {message && <p className={message.kind}>{message.text}</p>}
+      {message && <p className={message.kind}>
+          <InlineMd>{message.text}</InlineMd>
+        </p>}
 
       {hints.length > 0 && (
         <ol className="hints">

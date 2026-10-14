@@ -5,14 +5,24 @@ import { post } from "@/lib/client";
 import type { Explain } from "@/lib/prompts";
 import { AnswerBox } from "./AnswerBox";
 import { CodeBox } from "./CodeBox";
-import { Markdown } from "./Markdown";
+import { InlineMd, Markdown } from "./Markdown";
 import { ReadAloud } from "./Speech";
 
 type Chunk = { id: number; heading: string; bodyMd: string; passed: boolean };
 type Verdict = { verdict: "correct" | "partly" | "wrong"; feedback: string };
 
 /** One small idea: short explanation, a runnable example, then a check question. */
-export function ChunkStep({ chunk, sourceUrl, onPassed }: { chunk: Chunk; sourceUrl: string; onPassed: () => void }) {
+export function ChunkStep({
+  chunk,
+  sourceUrl,
+  stepLabel,
+  onPassed,
+}: {
+  chunk: Chunk;
+  sourceUrl: string;
+  stepLabel: string;
+  onPassed: () => void;
+}) {
   const [explain, setExplain] = useState<Explain | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [example, setExample] = useState("");
@@ -76,6 +86,7 @@ export function ChunkStep({ chunk, sourceUrl, onPassed }: { chunk: Chunk; source
 
   return (
     <section className="card step">
+      <span className="step-label">{stepLabel}</span>
       <h2>{chunk.heading}</h2>
       {error && (
         <p className="error">
@@ -85,25 +96,38 @@ export function ChunkStep({ chunk, sourceUrl, onPassed }: { chunk: Chunk; source
       {!explain && !error && <p className="muted">Your tutor is preparing this step…</p>}
       {explain && (
         <>
-          <p className="big">{explain.explanation}</p>
-          <p className="analogy">🧠 {explain.analogy}</p>
+          <p className="big">
+            <InlineMd>{explain.explanation}</InlineMd>
+          </p>
+          <p className="analogy">
+            🧠 <InlineMd>{explain.analogy}</InlineMd>
+          </p>
           <ReadAloud text={`${explain.explanation} ${explain.analogy}`} />
 
-          <h3>Try it</h3>
-          <p className="muted">Run it. Then change something and run it again. What changed?</p>
-          <CodeBox code={example} onChange={setExample} height={170} />
+          <div className="part">
+            <h3>💻 Try it</h3>
+            <p className="muted">Run it. Then change something and run it again. What changed?</p>
+            <CodeBox code={example} onChange={setExample} height={170} />
+          </div>
 
-          <h3>Check</h3>
-          <p className="big question">❓ {explain.question}</p>
-          <ReadAloud text={explain.question} label="Read question" />
-          {passed && result?.verdict !== "correct" && <p className="ok">✔ You already got this one. You can move on, or answer again for practice.</p>}
-          <AnswerBox placeholder="Type or speak your answer…" busy={busy} onSubmit={answer} />
-          {result && (
-            <p className={result.verdict === "correct" ? "ok" : result.verdict === "partly" ? "warn" : "error"}>
-              {result.verdict === "correct" ? "✔ " : result.verdict === "partly" ? "◐ Almost. " : "✖ Not yet. "}
-              {result.feedback}
+          <div className="part">
+            <h3>✋ Your turn</h3>
+            <p className="big question">
+              <InlineMd>{explain.question}</InlineMd>
             </p>
-          )}
+            <ReadAloud text={explain.question} label="Read question" />
+            {passed && result?.verdict !== "correct" && (
+              <p className="ok">✓ You already got this one. You can move on, or answer again for practice.</p>
+            )}
+            <AnswerBox placeholder="Type or speak your answer…" busy={busy} onSubmit={answer} />
+            {result && (
+              <p className={result.verdict === "correct" ? "ok" : result.verdict === "partly" ? "warn" : "error"}>
+                <b>{result.verdict === "correct" ? "✓ Right! " : result.verdict === "partly" ? "◐ Almost. " : "✗ Not yet. "}</b>
+                <InlineMd>{result.feedback}</InlineMd>
+                {result.verdict !== "correct" && <span className="small"> (This question will also come back in tomorrow’s review.)</span>}
+              </p>
+            )}
+          </div>
         </>
       )}
       <p>

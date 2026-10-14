@@ -101,3 +101,30 @@ The exercises are theirs to solve:
 - If they paste their exercise code, you may point out where the problem is with a question, but do not rewrite it.
 
 Format: plain text with Markdown. Use \`code\` for names. No headings.`;
+
+export const QUIZ_SYSTEM = `You write a short quiz for a beginner who just finished a few javascript.info lessons.
+${LEARNER}
+
+Write exactly 6 questions, ONLY about what the given lessons teach:
+- 4 questions of type "choice" with exactly 4 short options. At least 2 of them must show a tiny code snippet (max 6 lines, in "code") and ask "What does this code print?". Such snippets must print with console.log only, and the options must be the exact printed text (one line each).
+- 2 questions of type "short": they explain an idea in a sentence. Put the expected answer in "answer_key".
+- Each question tests understanding, not trivia. Mix the lessons. Plain, simple English.
+- "explain": one or two sentences shown after answering, saying why the right answer is right.
+- "lesson": the id of the lesson the question is about.
+- For "short" questions: options = [] and correct_index = -1. For "choice": "code" may be "" when there is no snippet.`;
+
+export const QuizShape = z.object({
+  questions: z.array(
+    z.object({
+      type: z.enum(["choice", "short"]),
+      question: z.string(),
+      code: z.string(),
+      options: z.array(z.string()),
+      correct_index: z.number().int(),
+      answer_key: z.string(),
+      explain: z.string(),
+      lesson: z.string(),
+    }),
+  ),
+});
+export type QuizQuestion = z.infer<typeof QuizShape>["questions"][number];

@@ -118,16 +118,59 @@ function startOfToday(): number {
 
 // ---------- Lessons and progress ----------
 
+/** A quiz comes after every few lessons of a chapter (only where there is code to practise). */
+export const QUIZ_EVERY = 3;
+export type QuizBlock = { id: string; chapter: string; lessonIds: string[] };
+
+export function quizBlocks(
+  lessons: { id: string; chapter: string }[],
+  exerciseCount: Map<string, number>,
+): QuizBlock[] {
+  const blocks: QuizBlock[] = [];
+  let i = 0;
+  while (i < lessons.length) {
+    const chapter = lessons[i].chapter;
+    const inChapter: string[] = [];
+    while (i < lessons.length && lessons[i].chapter === chapter) inChapter.push(lessons[i++].id);
+    for (let j = 0; j < inChapter.length; j += QUIZ_EVERY) {
+      const ids = inChapter.slice(j, j + QUIZ_EVERY);
+      if (ids.some((id) => (exerciseCount.get(id) ?? 0) > 0)) blocks.push({ id: `quiz-${ids[ids.length - 1]}`, chapter, lessonIds: ids });
+    }
+  }
+  return blocks;
+}
+
+export function allQuizBlocks(): QuizBlock[] {
+  const d = db();
+  const lessons = d.select({ id: schema.lessons.id, chapter: schema.lessons.chapter }).from(schema.lessons).orderBy(asc(schema.lessons.ord)).all();
+  const counts = new Map<string, number>();
+  for (const e of d.select({ lessonId: schema.exercises.lessonId }).from(schema.exercises).all())
+    counts.set(e.lessonId, (counts.get(e.lessonId) ?? 0) + 1);
+  return quizBlocks(lessons, counts);
+}
+
+export type QuizStatus = "locked" | "available" | "passed";
+
 export function lessonList() {
   const d = db();
   const lessons = d.select().from(schema.lessons).orderBy(asc(schema.lessons.ord)).all();
   const prog = new Map(d.select().from(schema.progress).all().map((p) => [p.lessonId, p]));
-  let unlocked = true; // lessons unlock in order
+  const passed = new Set(d.select().from(schema.quizzes).where(eq(schema.quizzes.passed, true)).all().map((q) => q.blockId));
+  const blockAfter = new Map(allQuizBlocks().map((b) => [b.lessonIds[b.lessonIds.length - 1], b]));
+  let unlocked = true; // lessons unlock in order, and after each quiz is passed
   return lessons.map((l) => {
     const p = prog.get(l.id);
     const status = p?.status === "completed" ? "completed" : unlocked ? (p ? "started" : "available") : "locked";
     if (status !== "completed") unlocked = false;
-    return { ...l, status, mastery: p?.mastery ?? 0 };
+    const block = blockAfter.get(l.id);
+    let quizAfter: { id: string; status: QuizStatus } | null = null;
+    if (block) {
+      const allDone = block.lessonIds.every((id) => prog.get(id)?.status === "completed");
+      const quizStatus: QuizStatus = passed.has(block.id) ? "passed" : allDone && unlocked ? "available" : "locked";
+      if (quizStatus !== "passed") unlocked = false;
+      quizAfter = { id: block.id, status: quizStatus };
+    }
+    return { ...l, status, mastery: p?.mastery ?? 0, quizAfter };
   });
 }
 
@@ -185,6 +228,7 @@ export function lessonDetail(lessonId: string) {
     status: prog?.status ?? "available",
     chunkIndex: prog?.chunkIndex ?? 0,
     next: all[idx + 1] ?? null,
+    quizAfter: all[idx]?.quizAfter ?? null,
     locked: all[idx]?.status === "locked",
   };
 }

@@ -13,3 +13,18 @@ export function Markdown({ children }: { children: string }) {
     </div>
   );
 }
+
+/** Short text with `code` and **bold**, rendered inline (no paragraph margins). */
+export function InlineMd({ children }: { children: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: (props) => <span {...props} />,
+        a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}

@@ -19,6 +19,18 @@ For every lesson:
 A lesson is complete only when every check, the teach-back, and every exercise pass.
 Lessons unlock in order.
 
+### Making it stick
+
+- **Daily review** (spaced repetition): any question you miss comes back after 1 day,
+  then 3, then 7. Miss it again and it starts over. The home page puts review first.
+- **Quizzes** after every 3 lessons: 6 fresh questions written by the tutor, no hints.
+  Pass with 70% to unlock the next lessons. "What does this code print?" questions are
+  checked by actually running the code, so the answer key is never wrong.
+- **Weekly report**: activity per day, how often you were right first time, and your
+  weakest topics to redo every Sunday.
+- **Reading settings** (the **Aa** button): text size and read-aloud speed. The font is
+  Atkinson Hyperlegible, designed to make letters easy to tell apart.
+
 ### The tutor never writes your code
 
 This is enforced by the app, not just asked of the AI:
@@ -75,7 +87,10 @@ To keep it low:
 | Part | Where |
 |---|---|
 | Next.js app (pages + API routes) | `src/app` |
-| Lesson, hint-ladder, completion and streak rules | `src/lib/learning.ts` |
+| Lesson, hint-ladder, completion, quiz-gating and streak rules | `src/lib/learning.ts` |
+| Spaced-repetition reviews | `src/lib/review.ts` |
+| Quizzes (generation, code-checked answers, grading) | `src/lib/quiz.ts` |
+| Weekly report | `src/lib/report.ts` |
 | Everything the tutor is told | `src/lib/prompts.ts` |
 | AI calls for any provider, and cost tracking | `src/lib/ai.ts` |
 | Which model does what (Settings + env vars) | `src/lib/models.ts` |
@@ -97,8 +112,9 @@ Use it for personal, non-commercial learning, keep the attribution, and don't re
 
 ## Roadmap
 
-- **Phase 1 (this):** javascript.info Part 1, lesson steps, read-aloud, voice answers, tutor chat,
-  code editor with tests, hint ladder, teach-back, progress and streak.
-- **Phase 2:** daily spaced-repetition review, quizzes, weekly report.
+- **Phase 1 (done):** javascript.info Part 1, lesson steps, read-aloud, voice answers, tutor chat,
+  code editor with tests, hint ladder, teach-back, progress and streak, any AI provider.
+- **Phase 2 (done):** daily spaced-repetition review, quizzes every 3 lessons, weekly report,
+  reading settings and a full design pass.
 - **Phase 3:** The Odin Project path (HTML/CSS, Node, React), capstone projects.
 - **Phase 4:** timed mastery exams with the tutor off, mock interviews, AI engineering track.

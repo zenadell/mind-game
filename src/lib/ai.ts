@@ -176,7 +176,18 @@ function fakeJson(purpose: string, prompt: string): unknown {
         question: "In your own words, what does this piece teach? (Offline demo: include the word 'because'.)",
         answer_key: "Any answer.",
       };
+    case "quiz":
+      return {
+        questions: [
+          { type: "choice", question: "(Offline demo) What does this code print?", code: "let a = 2;\nconsole.log(a + 3);", options: ["23", "5", "a3", "error"], correct_index: 1, answer_key: "", explain: "2 + 3 is 5.", lesson: "" },
+          { type: "choice", question: "(Offline demo) Which keyword makes a variable you can change later?", code: "", options: ["const", "let", "fixed", "static"], correct_index: 1, answer_key: "", explain: "let can be reassigned.", lesson: "" },
+          { type: "choice", question: "(Offline demo) What does this code print?", code: 'console.log("1" + 1);', options: ["2", "11", "NaN", "error"], correct_index: 1, answer_key: "", explain: "A string plus a number joins them.", lesson: "" },
+          { type: "short", question: "(Offline demo) Why do we use variables? (include 'because')", code: "", options: [], correct_index: -1, answer_key: "to store data", explain: "Variables store data.", lesson: "" },
+        ],
+      };
     case "grade-check":
+    case "grade-review":
+    case "grade-quiz":
       return { verdict: good ? "correct" : "wrong", feedback: good ? "Nice." : "(Offline demo) Use the word 'because'." };
     case "grade-teachback":
       return { verdict: good ? "understood" : "partly", feedback: "(Offline demo feedback.)", missing: good ? [] : ["say 'because'"] };

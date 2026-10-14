@@ -6,6 +6,7 @@ import { post } from "@/lib/client";
 import { AnswerBox } from "./AnswerBox";
 import { ChunkStep } from "./ChunkStep";
 import { ExerciseCard, type ExState, type Exercise } from "./ExerciseCard";
+import { InlineMd } from "./Markdown";
 import { ReadAloud } from "./Speech";
 import { TutorChat } from "./TutorChat";
 
@@ -17,6 +18,7 @@ type Props = {
   completed: boolean;
   chunkIndex: number;
   next: { id: string; title: string } | null;
+  quizAfter: { id: string; status: "locked" | "available" | "passed" } | null;
   chat: { role: "user" | "assistant"; content: string }[];
 };
 
@@ -76,11 +78,14 @@ export function LessonView(p: Props) {
         <p className="crumbs">
           <Link href="/">← All lessons</Link> · {p.lesson.chapter}
         </p>
-        <h1>{p.lesson.title}</h1>
+        <h1 className="lesson-head">{p.lesson.title}</h1>
         <p className="attribution">
           Based on <a href={p.lesson.sourceUrl} target="_blank" rel="noreferrer">javascript.info</a> by Ilya Kantor (CC BY-NC).
         </p>
 
+        <div className="bar thin" aria-label={`${passed.filter(Boolean).length} of ${n} steps done`}>
+          <span style={{ width: `${((passed.filter(Boolean).length + (teachback ? 1 : 0) + doneEx) / (n + 1 + p.exercises.length)) * 100}%` }} />
+        </div>
         <nav className="steps" aria-label="Lesson steps">
           {p.chunks.map((c, i) => (
             <button
@@ -108,23 +113,31 @@ export function LessonView(p: Props) {
         {completed && (
           <div className="card celebrate">
             <h2>🎉 Lesson complete!</h2>
-            <p>You explained it, checked it, and practised it. That’s real learning.</p>
-            {p.next ? (
-              <Link className="btn" href={`/lesson/${p.next.id}`}>
-                Next: {p.next.title} →
-              </Link>
-            ) : (
-              <Link className="btn" href="/">Back to lessons</Link>
-            )}
+            <p className="big" style={{ margin: "0 auto" }}>
+              You explained it, checked it, and practised it. That’s real learning.
+            </p>
+            <div className="row" style={{ justifyContent: "center" }}>
+              {p.quizAfter && p.quizAfter.status !== "passed" ? (
+                <Link className="btn big-btn" href={`/quiz/${p.quizAfter.id}`}>
+                  Quiz time: test the last few lessons →
+                </Link>
+              ) : p.next ? (
+                <Link className="btn big-btn" href={`/lesson/${p.next.id}`}>
+                  Next: {p.next.title} →
+                </Link>
+              ) : (
+                <Link className="btn big-btn" href="/">
+                  Back to lessons
+                </Link>
+              )}
+            </div>
           </div>
         )}
 
         {step < n && (
           <>
-            <p className="muted">
-              Step {step + 1} of {n}
-            </p>
             <ChunkStep
+              stepLabel={`Step ${step + 1} of ${n}`}
               chunk={p.chunks[step]}
               sourceUrl={p.lesson.sourceUrl}
               onPassed={() => setPassed((old) => old.map((x, i) => (i === step ? true : x)))}
@@ -155,7 +168,7 @@ export function LessonView(p: Props) {
               <div className={tbResult.verdict === "understood" ? "ok" : tbResult.verdict === "partly" ? "warn" : "error"}>
                 <p>
                   {tbResult.verdict === "understood" ? "✔ You understood it! " : tbResult.verdict === "partly" ? "◐ Partly there. " : "✖ Not yet. "}
-                  {tbResult.feedback}
+                  <InlineMd>{tbResult.feedback}</InlineMd>
                 </p>
                 {tbResult.missing.length > 0 && (
                   <ul>

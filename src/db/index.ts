@@ -45,6 +45,19 @@ CREATE TABLE IF NOT EXISTS api_usage (
   cache_write_tokens INTEGER NOT NULL, cost_usd REAL NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS activity (day TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, lesson_id TEXT NOT NULL, source TEXT NOT NULL,
+  source_key TEXT NOT NULL, kind TEXT NOT NULL, question TEXT NOT NULL, code TEXT, options_json TEXT,
+  answer_key TEXT NOT NULL, context TEXT NOT NULL, stage INTEGER NOT NULL DEFAULT 0,
+  due_day TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS reviews_due ON reviews(done, due_day);
+CREATE TABLE IF NOT EXISTS review_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, review_id INTEGER NOT NULL, answer TEXT NOT NULL,
+  correct INTEGER NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS quizzes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, block_id TEXT NOT NULL, questions_json TEXT NOT NULL,
+  results_json TEXT, score REAL, passed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+  finished_at INTEGER);
 `;
 
 export function openDb(file = process.env.CODETUTOR_DB ?? path.join(process.cwd(), "data", "codetutor.db")) {

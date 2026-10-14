@@ -118,3 +118,41 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+// Spaced repetition: questions to ask again after 1, 3 and 7 days.
+export const reviews = sqliteTable("reviews", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  lessonId: text("lesson_id").notNull(),
+  source: text("source").notNull(), // "check" | "quiz"
+  sourceKey: text("source_key").notNull(), // e.g. chunk id; one active review per key
+  kind: text("kind").notNull(), // "short" | "choice"
+  question: text("question").notNull(),
+  code: text("code"),
+  optionsJson: text("options_json"), // for "choice"
+  answerKey: text("answer_key").notNull(), // for "choice": the correct option index
+  context: text("context").notNull(), // lesson text the grader may use
+  stage: integer("stage").notNull().default(0),
+  dueDay: text("due_day").notNull(), // YYYY-MM-DD in the learner's time zone
+  done: integer("done", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const reviewLog = sqliteTable("review_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  reviewId: integer("review_id").notNull(),
+  answer: text("answer").notNull(),
+  correct: integer("correct", { mode: "boolean" }).notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+// A quiz after every few lessons. The next lessons unlock when it is passed.
+export const quizzes = sqliteTable("quizzes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  blockId: text("block_id").notNull(),
+  questionsJson: text("questions_json").notNull(),
+  resultsJson: text("results_json"),
+  score: real("score"),
+  passed: integer("passed", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at").notNull(),
+  finishedAt: integer("finished_at"),
+});
