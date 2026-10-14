@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { lessonList, stats } from "@/lib/learning";
+import { isConfigured } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,13 @@ export default function Home() {
   const current = lessons.find((l) => l.status === "started" || l.status === "available");
   const chapters = new Map<string, typeof lessons>();
   for (const l of lessons) chapters.set(l.chapter, [...(chapters.get(l.chapter) ?? []), l]);
-  const keyMissing = !process.env.ANTHROPIC_API_KEY && process.env.CODETUTOR_FAKE_AI !== "1";
+  const keyMissing = !isConfigured();
 
   return (
     <main>
       {keyMissing && (
         <p className="error card">
-          The tutor needs an API key. Copy <code>.env.example</code> to <code>.env.local</code>, paste your Anthropic API key, and restart.
+          The tutor needs an AI model. <Link href="/settings">Open ⚙️ Settings</Link> and add your API key.
         </p>
       )}
       <section className="card hero">

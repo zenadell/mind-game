@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { GRADER_MODEL, TUTOR_MODEL, askJson, stripCode } from "./ai";
+import { askJson, stripCode } from "./ai";
 import {
   CHECK_SYSTEM,
   CheckShape,
@@ -99,11 +99,12 @@ export function stats() {
     .select({
       total: sql<number>`coalesce(sum(${schema.apiUsage.costUsd}), 0)`,
       today: sql<number>`coalesce(sum(case when ${schema.apiUsage.createdAt} >= ${startOfToday()} then ${schema.apiUsage.costUsd} end), 0)`,
+      tokensToday: sql<number>`coalesce(sum(case when ${schema.apiUsage.createdAt} >= ${startOfToday()} then ${schema.apiUsage.inputTokens} + ${schema.apiUsage.cacheReadTokens} + ${schema.apiUsage.outputTokens} end), 0)`,
     })
     .from(schema.apiUsage)
     .get()!;
   const completed = d.select().from(schema.progress).where(eq(schema.progress.status, "completed")).all().length;
-  return { streak: streak(days), costTotal: cost.total, costToday: cost.today, completed };
+  return { streak: streak(days), costTotal: cost.total, costToday: cost.today, tokensToday: cost.tokensToday, completed };
 }
 
 function startOfToday(): number {
@@ -274,7 +275,7 @@ export async function explainChunk(chunkId: number, again?: { previous: Explain;
   ].join("\n\n");
   const result = await askJson({
     purpose: again ? "re-explain" : "explain",
-    model: TUTOR_MODEL,
+    role: "tutor",
     system: EXPLAIN_SYSTEM,
     prompt,
     shape: ExplainShape,
@@ -289,7 +290,7 @@ export async function gradeCheck(chunkId: number, question: string, answerKey: s
   const { chunk } = chunkWithLesson(chunkId);
   const res = await askJson({
     purpose: "grade-check",
-    model: GRADER_MODEL,
+    role: "grader",
     system: CHECK_SYSTEM,
     prompt: `<lesson_piece>\n${chunk.bodyMd}\n</lesson_piece>\n\nQuestion: ${question}\nAnswer key: ${answerKey}\n\nLearner answer: ${answer}`,
     shape: CheckShape,
@@ -309,7 +310,7 @@ export async function gradeTeachback(lessonId: string, text: string) {
   const summary = detail.chunks.map((c) => `## ${c.heading}\n${c.bodyMd}`).join("\n\n");
   const res = await askJson({
     purpose: "grade-teachback",
-    model: GRADER_MODEL,
+    role: "grader",
     system: TEACHBACK_SYSTEM,
     prompt: `Lesson: "${detail.lesson.title}"\n<lesson>\n${summary}\n</lesson>\n\nLearner teach-back:\n${text}`,
     shape: TeachbackShape,
@@ -337,7 +338,7 @@ export async function giveHint(exerciseId: string, code: string) {
   const level = s.hintsUsed + 1;
   const res = await askJson({
     purpose: "hint",
-    model: TUTOR_MODEL,
+    role: "tutor",
     system: HINT_SYSTEM,
     prompt: `Give a level ${level} hint.\n\n<task>\n${ex.promptMd}\n</task>\n\n<reference_solution_secret>\n${ex.solutionHidden}\n</reference_solution_secret>\n\n<learner_code>\n${code}\n</learner_code>`,
     shape: HintShape,
@@ -367,7 +368,7 @@ export async function submitAttempt(
   } else {
     const res = await askJson({
       purpose: "grade-exercise",
-      model: GRADER_MODEL,
+      role: "grader",
       system: EXERCISE_GRADE_SYSTEM,
       prompt: `<task>\n${ex.promptMd}\n</task>\n\n<reference_solution_secret>\n${ex.solutionHidden}\n</reference_solution_secret>\n\n<learner_code>\n${code}\n</learner_code>\n\n<output_when_run>\n${(run.output ?? "").slice(0, 2000)}\n</output_when_run>`,
       shape: ExerciseGradeShape,
@@ -414,7 +415,7 @@ export async function gradeSolutionExplanation(exerciseId: string, code: string,
   if (!s.solutionShown) return { passed: false, feedback: "Nothing to explain yet.", state: publicState(s) };
   const res = await askJson({
     purpose: "grade-line-explanation",
-    model: GRADER_MODEL,
+    role: "grader",
     system: EXPLAIN_SOLUTION_SYSTEM,
     prompt: `<task>\n${ex.promptMd}\n</task>\n\n<learner_code>\n${code}\n</learner_code>\n\n<learner_explanation>\n${explanation}\n</learner_explanation>`,
     shape: ExerciseGradeShape,

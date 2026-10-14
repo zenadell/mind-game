@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS api_usage (
   input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, cache_read_tokens INTEGER NOT NULL,
   cache_write_tokens INTEGER NOT NULL, cost_usd REAL NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS activity (day TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
 export function openDb(file = process.env.CODETUTOR_DB ?? path.join(process.cwd(), "data", "codetutor.db")) {

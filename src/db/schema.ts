@@ -112,3 +112,9 @@ export const apiUsage = sqliteTable("api_usage", {
 export const activity = sqliteTable("activity", {
   day: text("day").primaryKey(), // YYYY-MM-DD in his time zone
 });
+
+// App settings, e.g. which AI model to use. Stays on this machine.
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});

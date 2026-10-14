@@ -33,15 +33,26 @@ This is enforced by the app, not just asked of the AI:
 
 ## Setup (one time)
 
-You need [Node.js](https://nodejs.org) 20 or newer, Git, and an
-[Anthropic API key](https://console.anthropic.com).
+You need [Node.js](https://nodejs.org) 20 or newer, Git, and an API key from any AI provider.
 
 ```bash
 npm install
-cp .env.example .env.local     # then open .env.local and paste your API key
 npm run import                 # downloads javascript.info and builds the lessons
 npm run dev                    # open http://localhost:3000
 ```
+
+Then open **⚙️ Settings** in the app:
+
+1. Pick a provider: DeepSeek, Anthropic (Claude), OpenAI, OpenRouter, Google Gemini, Groq,
+   Ollama (free, runs on your computer), or any other OpenAI-compatible API.
+2. Paste your API key.
+3. Press **Load models**. The app asks the provider which models it has, so brand-new
+   models show up without any code changes. Pick one.
+4. Press **Test**, then **Save**.
+
+The tutor (explains, hints, chats) and the grader (marks short answers) can use different
+models or even different providers. Prefer files? Put the same settings in `.env.local`
+(see `.env.example`); settings saved in the app win.
 
 Use Chrome or Edge: they support voice input. Read-aloud works in all modern browsers.
 
@@ -50,13 +61,14 @@ so you can click through everything for free (the explanations will be placehold
 
 ## Cost
 
-Every tutor message is a paid API call. The bar at the top shows what you've spent today
-(hover for the total). To keep it low:
+Every tutor message is a paid API call. The bar at the top shows today's cost (hover for the
+total). Add your model's prices in Settings to see dollars; without prices it shows tokens.
+To keep it low:
 
 - Explanations are made once per step and saved, so re-opening a step is free.
-- Short answers are graded by a cheap model (`GRADER_MODEL`, default Claude Haiku 5.5);
-  teaching uses a stronger one (`TUTOR_MODEL`, default Claude Opus 5.5) at low effort.
-- The tutor only sees the current lesson, and that lesson text is prompt-cached.
+- You can point the grader at a cheaper model than the tutor.
+- The tutor only sees the current lesson, and that lesson text comes first in every request,
+  so providers with prompt caching (DeepSeek, Claude, OpenAI) reuse it cheaply.
 
 ## How it's built
 
@@ -65,7 +77,8 @@ Every tutor message is a paid API call. The bar at the top shows what you've spe
 | Next.js app (pages + API routes) | `src/app` |
 | Lesson, hint-ladder, completion and streak rules | `src/lib/learning.ts` |
 | Everything the tutor is told | `src/lib/prompts.ts` |
-| Claude API calls and cost tracking | `src/lib/ai.ts` |
+| AI calls for any provider, and cost tracking | `src/lib/ai.ts` |
+| Which model does what (Settings + env vars) | `src/lib/models.ts` |
 | Code runner (Web Worker, 3-second limit, fake `alert`/`prompt`, mocha-style tests) | `src/lib/sandbox*.{ts,js}` |
 | javascript.info importer | `scripts/import-jsinfo.ts`, `src/lib/jsinfo-parse.ts` |
 | Database (SQLite + Drizzle, file in `data/`) | `src/db` |

@@ -74,7 +74,7 @@ Hint levels (you are told which level to give):
 2. Point to the exact concept from the lesson they need, and how it relates to the task. No code.
 3. A partial plan in plain-English pseudocode steps (numbered, max 5). No real JavaScript syntax.
 Look at their current code and target the hint at where they are stuck.
-At most 70 words. Never write JavaScript code. Never reveal the reference solution.`;
+At most 70 words. Never write JavaScript code. Never reveal the reference solution, and never spell out the exact statement to write (e.g. not "set admin equal to name"): make them take the last step themselves.`;
 
 export const HintShape = z.object({ hint: z.string() });
 

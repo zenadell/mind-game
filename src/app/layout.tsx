@@ -16,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" className="brand">
             🧑🏾‍🏫 CodeTutor
           </Link>
-          <StatsBar />
+          <div className="top-right">
+            <StatsBar />
+            <Link href="/settings" title="Settings">⚙️ Settings</Link>
+          </div>
         </header>
         <div className="page">{children}</div>
         <footer className="foot">
