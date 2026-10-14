@@ -1,0 +1,14 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets
+.env.local
+.env*.local
+
+# Imported course content and the learner's data stay on this machine only.
+# (javascript.info is CC BY-NC: personal use with attribution, no republishing.)
+content/
+data/
+public/jsinfo/
