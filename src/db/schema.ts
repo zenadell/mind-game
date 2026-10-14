@@ -62,7 +62,8 @@ export const exerciseState = sqliteTable("exercise_state", {
 
 export const checks = sqliteTable("checks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  chunkId: integer("chunk_id").notNull(),
+  chunkId: integer("chunk_id").notNull(), // older lessons; 0 for step checks
+  stepId: integer("step_id"),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   verdict: text("verdict").notNull(), // correct | partly | wrong
@@ -155,4 +156,29 @@ export const quizzes = sqliteTable("quizzes", {
   passed: integer("passed", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at").notNull(),
   finishedAt: integer("finished_at"),
+});
+
+// The Odin Project lessons (filled by `npm run import`), linked to javascript.info lessons.
+export const odinLessons = sqliteTable("odin_lessons", {
+  path: text("path").primaryKey(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  bodyMd: text("body_md").notNull(),
+});
+
+export const lessonOdin = sqliteTable("lesson_odin", {
+  lessonId: text("lesson_id").notNull(),
+  odinPath: text("odin_path").notNull(),
+});
+
+// A lesson's teaching steps, planned by the tutor from both sources.
+// The deep content of each step is written the first time it is opened, then saved.
+export const steps = sqliteTable("steps", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  lessonId: text("lesson_id").notNull(),
+  ord: integer("ord").notNull(),
+  title: text("title").notNull(),
+  goal: text("goal").notNull(),
+  contentJson: text("content_json"),
+  createdAt: integer("created_at").notNull(),
 });

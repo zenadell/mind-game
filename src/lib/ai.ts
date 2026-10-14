@@ -167,13 +167,31 @@ function fakeJson(purpose: string, prompt: string): unknown {
   const answer = prompt.match(/(?:Learner answer|Learner teach-back):\s*([\s\S]*)$/)?.[1] ?? "";
   const good = /\b(right|yes|correct|store|because)\b/i.test(answer);
   switch (purpose) {
-    case "explain":
+    case "plan-lesson":
+      return {
+        steps: [
+          { title: "(Offline demo) What a web page is", goal: "Know what a browser shows and what HTML is." },
+          { title: "(Offline demo) Printing a message", goal: "Use console.log to show a message." },
+        ],
+      };
+    case "write-step":
+      return {
+        why: "(Offline demo) Programs need a way to show you what they are doing.",
+        new_words: [{ word: "console", meaning: "A panel where programs write messages for the programmer." }],
+        explanation: ["(Offline demo) First idea.", "Second idea."],
+        analogy: "Like a labelled box where you keep something.",
+        example: { language: "javascript", lines: [{ code: 'console.log("Hello");', explain: "Prints Hello in the console." }] },
+        output: "Hello",
+        real_world: "Programmers use this every day to check their code.",
+        mistakes: ["Forgetting the quotes around text."],
+        question: "Why do we print messages? (Offline demo: include the word 'because'.)",
+        answer_key: "Any answer.",
+      };
     case "re-explain":
       return {
-        explanation: `(Offline demo) ${purpose === "re-explain" ? "Another way: " : ""}This step is about the idea in the original text below. Read it, then try the example.`,
-        analogy: "Like a labelled box where you keep something.",
-        example: 'let message = "Hello";\nconsole.log(message);',
-        question: "In your own words, what does this piece teach? (Offline demo: include the word 'because'.)",
+        explanation: ["(Offline demo) Another way to see it."],
+        analogy: "Like a note you leave for yourself.",
+        question: "Try again: why print messages? (include 'because')",
         answer_key: "Any answer.",
       };
     case "quiz":
@@ -216,7 +234,8 @@ export async function askJson<T extends z.ZodType>(opts: {
     const res = await anthropicClient(cfg)
       .beta.messages.create({
         model: cfg.model,
-        max_tokens: opts.maxTokens ?? 4000,
+        // Above ~16k the SDK requires streaming; JSON answers here are well under that.
+        max_tokens: Math.min(opts.maxTokens ?? 4000, 16000),
         system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: opts.prompt }],
         output_config: { ...claudeEffort(cfg.model), format: { type: "json_schema", schema: schemaJson } },
@@ -234,8 +253,9 @@ export async function askJson<T extends z.ZodType>(opts: {
     { role: "system", content: system },
     { role: "user", content: opts.prompt },
   ];
-  // Reasoning models spend tokens thinking before they answer, so leave room.
-  const maxTokens = Math.max(opts.maxTokens ?? 0, 8000);
+  // Reasoning models (e.g. DeepSeek) spend tokens thinking before they answer, and that
+  // counts toward max_tokens, so leave plenty of room or the JSON gets cut off.
+  const maxTokens = Math.max(opts.maxTokens ?? 0, 16000);
   let jsonMode = true;
   for (let attempt = 0; attempt < 2; attempt++) {
     let text: string;
@@ -243,7 +263,7 @@ export async function askJson<T extends z.ZodType>(opts: {
       const res = await anthropicClient(cfg)
         .messages.create({
           model: cfg.model,
-          max_tokens: maxTokens,
+          max_tokens: Math.min(maxTokens, 16000),
           system,
           messages: messages.slice(1).map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
         })
@@ -274,6 +294,7 @@ export async function askJson<T extends z.ZodType>(opts: {
     } catch (e) {
       problem = (e as Error).message;
     }
+    console.warn(`[askJson:${opts.purpose}] attempt ${attempt + 1} invalid: ${problem} | reply starts: ${text.slice(0, 200)}`);
     messages.push(
       { role: "assistant", content: text },
       { role: "user", content: `That reply was not valid (${problem}). Reply again with ONLY the corrected JSON object.` },

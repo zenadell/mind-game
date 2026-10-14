@@ -19,9 +19,9 @@ test("review schedule: 1, 3, 7 days; a miss starts again", () => {
 test("a wrong check is queued once, due tomorrow, and graded on review", async () => {
   const d = db();
   d.insert(schema.lessons).values({ id: "v", source: "s", sourceUrl: "u", path: "p", title: "Variables", chapter: "C", semester: 1, ord: 1 }).run();
-  const c = d.insert(schema.chunks).values({ lessonId: "v", ord: 0, heading: "h", bodyMd: "let stores values" }).returning().get();
-  R.scheduleFromCheck(c.id, "What does let do?", "declares a variable");
-  R.scheduleFromCheck(c.id, "What does let do?", "declares a variable");
+  const r0 = { lessonId: "v", source: "check" as const, sourceKey: "step:1", kind: "short" as const, question: "What does let do?", answerKey: "declares a variable", context: "let stores values" };
+  R.scheduleReview(r0);
+  R.scheduleReview(r0);
   assert.equal(d.select().from(schema.reviews).all().length, 1);
   assert.equal(R.dueReviews(L.dayKey()).length, 0); // not today
   const tomorrow = R.addDays(L.dayKey(), 1);

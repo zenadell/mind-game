@@ -36,7 +36,8 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
   return (
     <LessonView
       lesson={d.lesson}
-      chunks={d.chunks}
+      steps={d.steps}
+      odin={d.odin}
       exercises={d.exercises}
       teachbackPassed={d.teachbackPassed}
       completed={d.status === "completed"}

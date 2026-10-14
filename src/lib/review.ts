@@ -1,7 +1,7 @@
 import { and, asc, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson } from "./ai";
-import { dayKey, markActive } from "./learning";
+import { dayKey, markActive } from "./core";
 import { CHECK_SYSTEM, CheckShape } from "./prompts";
 
 // Spaced repetition: anything answered wrong comes back after 1 day, then 3, then 7.
@@ -122,19 +122,4 @@ export async function answerReview(id: number, answer: string) {
   d.insert(schema.reviewLog).values({ reviewId: id, answer, correct, createdAt: Date.now() }).run();
   markActive();
   return { correct, feedback, done: next.done, nextDay: next.done ? null : next.dueDay };
-}
-
-/** A check question answered wrong (or only partly) comes back tomorrow. */
-export function scheduleFromCheck(chunkId: number, question: string, answerKey: string) {
-  const chunk = db().select().from(schema.chunks).where(eq(schema.chunks.id, chunkId)).get();
-  if (!chunk) return;
-  scheduleReview({
-    lessonId: chunk.lessonId,
-    source: "check",
-    sourceKey: `check:${chunkId}`,
-    kind: "short",
-    question,
-    answerKey,
-    context: chunk.bodyMd,
-  });
 }

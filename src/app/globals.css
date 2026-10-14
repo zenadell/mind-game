@@ -286,3 +286,30 @@ a.plan-card:hover { border-color: var(--primary); transform: translateY(-1px); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Deep steps ---------- */
+.preview { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin: 8px 0; background: #fff; }
+.preview-bar { background: var(--surface-2); color: var(--muted); font-size: 0.75rem; font-weight: 700; padding: 4px 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.preview iframe { width: 100%; height: 150px; border: 0; display: block; background: #fff; }
+.piece { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 16px; animation: rise 0.25s ease; }
+.piece:first-of-type { border-top: 0; margin-top: 4px; padding-top: 0; }
+.piece h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+.piece-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.words { display: grid; gap: 8px; margin: 6px 0; }
+.word { background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 14px; }
+.word b { font-family: var(--mono); font-size: 0.95rem; color: var(--primary); }
+.lines { margin: 8px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.line { display: grid; grid-template-columns: 2.2em minmax(0, 1fr); border-top: 1px solid var(--border); }
+.line:first-child { border-top: 0; }
+.line .no { background: var(--code-bg); color: #8b919a; font-family: var(--mono); font-size: 0.8rem; text-align: right; padding: 8px 6px 8px 0; }
+.line .body { padding: 0; }
+.line pre { margin: 0; background: var(--code-bg); color: var(--code-ink); font-family: var(--mono); font-size: 0.88rem; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; }
+.line p { margin: 0; padding: 8px 12px 10px; }
+.mini-steps { display: flex; gap: 5px; align-items: center; margin: 2px 0 10px; }
+.mini-steps span { width: 22px; height: 6px; border-radius: 3px; background: var(--surface-2); }
+.mini-steps span.on { background: var(--primary); }
+.sources { font-size: 0.82rem; color: var(--muted); margin-top: 18px; }
+.sources a { margin-right: 10px; }
+.goal { color: var(--muted); margin-top: -4px; }
+.preview .output { margin: 0; border-radius: 0; }

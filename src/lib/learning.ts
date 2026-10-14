@@ -1,20 +1,19 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson, stripCode } from "./ai";
+import { NotFound, dayKey, markActive } from "./core";
 import {
-  CHECK_SYSTEM,
-  CheckShape,
   EXERCISE_GRADE_SYSTEM,
   EXPLAIN_SOLUTION_SYSTEM,
-  EXPLAIN_SYSTEM,
   ExerciseGradeShape,
-  ExplainShape,
   HINT_SYSTEM,
   HintShape,
   TEACHBACK_SYSTEM,
   TeachbackShape,
-  type Explain,
 } from "./prompts";
+import { lessonSources, lessonSteps, passedSteps } from "./steps";
+
+export { NotFound, dayKey, markActive };
 
 // ---------- Hint ladder rules (enforced here, not just in the prompt) ----------
 
@@ -68,16 +67,6 @@ function saveState(s: ExerciseState) {
 }
 
 // ---------- Activity and streak ----------
-
-const TZ = process.env.LEARNER_TZ || "Africa/Lagos";
-
-export function dayKey(t = Date.now()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(t);
-}
-
-export function markActive() {
-  db().insert(schema.activity).values({ day: dayKey() }).onConflictDoNothing().run();
-}
 
 /** Days in a row with activity, counting today (or up to yesterday if not yet active today). */
 export function streak(days: string[], today = dayKey()): number {
@@ -182,12 +171,15 @@ export function lessonDetail(lessonId: string) {
   const d = db();
   const lesson = d.select().from(schema.lessons).where(eq(schema.lessons.id, lessonId)).get();
   if (!lesson) return null;
-  const chunks = d
-    .select({ id: schema.chunks.id, ord: schema.chunks.ord, heading: schema.chunks.heading, bodyMd: schema.chunks.bodyMd })
-    .from(schema.chunks)
-    .where(eq(schema.chunks.lessonId, lessonId))
-    .orderBy(asc(schema.chunks.ord))
-    .all();
+  const passed = passedSteps(lessonId);
+  const steps = lessonSteps(lessonId).map((s) => ({
+    id: s.id,
+    title: s.title,
+    goal: s.goal,
+    ready: !!s.contentJson,
+    passed: passed.has(s.id),
+  }));
+  const sources = lessonSources(lessonId);
   const exercises = d
     .select({
       id: schema.exercises.id,
@@ -203,14 +195,6 @@ export function lessonDetail(lessonId: string) {
     .orderBy(asc(schema.exercises.ord))
     .all()
     .map((e) => ({ ...e, state: publicState(getState(e.id)) }));
-  const passedChunks = new Set(
-    d
-      .select({ chunkId: schema.checks.chunkId })
-      .from(schema.checks)
-      .where(eq(schema.checks.verdict, "correct"))
-      .all()
-      .map((c) => c.chunkId),
-  );
   const teachback = d
     .select()
     .from(schema.teachbacks)
@@ -222,7 +206,8 @@ export function lessonDetail(lessonId: string) {
   const idx = all.findIndex((l) => l.id === lessonId);
   return {
     lesson,
-    chunks: chunks.map((c) => ({ ...c, passed: passedChunks.has(c.id) })),
+    steps,
+    odin: sources.odin.map((o) => ({ title: o.title, url: o.url })),
     exercises,
     teachbackPassed: teachback?.verdict === "understood",
     status: prog?.status ?? "available",
@@ -260,7 +245,8 @@ export function tryComplete(lessonId: string): { completed: boolean; missing: st
   const detail = lessonDetail(lessonId);
   if (!detail) return { completed: false, missing: ["lesson not found"] };
   const missing: string[] = [];
-  const unchecked = detail.chunks.filter((c) => !c.passed).length;
+  if (!detail.steps.length) return { completed: false, missing: ["the lesson steps"] };
+  const unchecked = detail.steps.filter((c) => !c.passed).length;
   if (unchecked) missing.push(`${unchecked} check question${unchecked > 1 ? "s" : ""}`);
   if (!detail.teachbackPassed) missing.push("the teach-back");
   const open = detail.exercises.filter((e) => !e.state.done).length;
@@ -271,12 +257,12 @@ export function tryComplete(lessonId: string): { completed: boolean; missing: st
     // Mastery: share of checks right on the first try, and exercises solved without the solution.
     const d = db();
     let firstTry = 0;
-    for (const c of detail.chunks) {
-      const first = d.select().from(schema.checks).where(eq(schema.checks.chunkId, c.id)).orderBy(asc(schema.checks.id)).get();
+    for (const st of detail.steps) {
+      const first = d.select().from(schema.checks).where(eq(schema.checks.stepId, st.id)).orderBy(asc(schema.checks.id)).get();
       if (first?.verdict === "correct") firstTry++;
     }
     const own = detail.exercises.filter((e) => !e.state.solutionShown).length;
-    const parts = [firstTry / Math.max(1, detail.chunks.length)];
+    const parts = [firstTry / Math.max(1, detail.steps.length)];
     if (detail.exercises.length) parts.push(own / detail.exercises.length);
     const mastery = parts.reduce((a, b) => a + b, 0) / parts.length;
     d.insert(schema.progress)
@@ -292,66 +278,11 @@ export function tryComplete(lessonId: string): { completed: boolean; missing: st
 
 // ---------- Teaching steps ----------
 
-function chunkWithLesson(chunkId: number) {
-  const d = db();
-  const chunk = d.select().from(schema.chunks).where(eq(schema.chunks.id, chunkId)).get();
-  if (!chunk) throw new NotFound("chunk");
-  const lesson = d.select().from(schema.lessons).where(eq(schema.lessons.id, chunk.lessonId)).get()!;
-  return { chunk, lesson };
-}
-
-export class NotFound extends Error {
-  constructor(what: string) {
-    super(`${what} not found`);
-  }
-}
-
-/** Short explanation + check question for a chunk. Cached, unless `again` (re-explain differently). */
-export async function explainChunk(chunkId: number, again?: { previous: Explain; wrongAnswers: string[] }) {
-  const { chunk, lesson } = chunkWithLesson(chunkId);
-  if (!again && chunk.explainJson) return ExplainShape.parse(JSON.parse(chunk.explainJson));
-  const prompt = [
-    `Lesson: "${lesson.title}". Piece: "${chunk.heading}".`,
-    `<lesson_piece>\n${chunk.bodyMd}\n</lesson_piece>`,
-    again
-      ? `The learner did not get it yet. Previous explanation:\n${again.previous.explanation}\nPrevious analogy: ${again.previous.analogy}\nTheir wrong answers: ${again.wrongAnswers.join(" | ")}\nRe-explain differently: new analogy, simpler example, smaller step, and a new (easier) question.`
-      : "Make the bite-size step.",
-  ].join("\n\n");
-  const result = await askJson({
-    purpose: again ? "re-explain" : "explain",
-    role: "tutor",
-    system: EXPLAIN_SYSTEM,
-    prompt,
-    shape: ExplainShape,
-  });
-  if (!again) {
-    db().update(schema.chunks).set({ explainJson: JSON.stringify(result) }).where(eq(schema.chunks.id, chunkId)).run();
-  }
-  return result;
-}
-
-export async function gradeCheck(chunkId: number, question: string, answerKey: string, answer: string) {
-  const { chunk } = chunkWithLesson(chunkId);
-  const res = await askJson({
-    purpose: "grade-check",
-    role: "grader",
-    system: CHECK_SYSTEM,
-    prompt: `<lesson_piece>\n${chunk.bodyMd}\n</lesson_piece>\n\nQuestion: ${question}\nAnswer key: ${answerKey}\n\nLearner answer: ${answer}`,
-    shape: CheckShape,
-    maxTokens: 1500,
-  });
-  db()
-    .insert(schema.checks)
-    .values({ chunkId, question, answer, verdict: res.verdict, feedback: res.feedback, createdAt: Date.now() })
-    .run();
-  markActive();
-  return res;
-}
-
 export async function gradeTeachback(lessonId: string, text: string) {
   const detail = lessonDetail(lessonId);
   if (!detail) throw new NotFound("lesson");
-  const summary = detail.chunks.map((c) => `## ${c.heading}\n${c.bodyMd}`).join("\n\n");
+  const plan = detail.steps.map((st, i) => `${i + 1}. ${st.title}: ${st.goal}`).join("\n");
+  const summary = `Steps taught:\n${plan}\n\n${lessonSources(lessonId).jsinfo}`;
   const res = await askJson({
     purpose: "grade-teachback",
     role: "grader",
@@ -491,7 +422,10 @@ export function saveMessage(lessonId: string, role: "user" | "assistant", conten
 export function lessonContextForTutor(lessonId: string): string {
   const detail = lessonDetail(lessonId);
   if (!detail) throw new NotFound("lesson");
-  const text = detail.chunks.map((c, i) => `### Step ${i + 1}: ${c.heading}\n${c.bodyMd}`).join("\n\n");
+  const src = lessonSources(lessonId);
+  const plan = detail.steps.map((st, i) => `${i + 1}. ${st.title}: ${st.goal}`).join("\n");
+  const odin = src.odin.map((o) => `<odin_lesson title="${o.title}">\n${o.body}\n</odin_lesson>`).join("\n\n");
+  const text = `Steps of this lesson:\n${plan || "(not planned yet)"}\n\n<javascript_info>\n${src.jsinfo}\n</javascript_info>\n\n${odin}`;
   const tasks = detail.exercises.map((e) => `- ${e.title}: ${e.promptMd.split("\n")[0]}`).join("\n");
   return `<lesson title="${detail.lesson.title}" source="${detail.lesson.sourceUrl}">\n${text}\n</lesson>\n\n<exercises_the_learner_must_solve>\n${tasks || "(none)"}\n</exercises_the_learner_must_solve>`;
 }

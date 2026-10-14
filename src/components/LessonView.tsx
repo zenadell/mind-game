@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { post } from "@/lib/client";
 import { AnswerBox } from "./AnswerBox";
-import { ChunkStep } from "./ChunkStep";
 import { ExerciseCard, type ExState, type Exercise } from "./ExerciseCard";
 import { InlineMd } from "./Markdown";
 import { ReadAloud } from "./Speech";
+import { StepView, type StepInfo } from "./StepView";
 import { TutorChat } from "./TutorChat";
 
 type Props = {
   lesson: { id: string; title: string; chapter: string; sourceUrl: string };
-  chunks: { id: number; heading: string; bodyMd: string; passed: boolean }[];
+  steps: StepInfo[];
+  odin: { title: string; url: string }[];
   exercises: Exercise[];
   teachbackPassed: boolean;
   completed: boolean;
@@ -25,7 +26,9 @@ type Props = {
 type TeachbackResult = { verdict: "understood" | "partly" | "not_yet"; feedback: string; missing: string[] };
 
 export function LessonView(p: Props) {
-  const [passed, setPassed] = useState(() => p.chunks.map((c) => c.passed));
+  const [steps, setSteps] = useState<StepInfo[]>(p.steps);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [passed, setPassed] = useState(() => p.steps.map((c) => c.passed));
   const [teachback, setTeachback] = useState(p.teachbackPassed);
   const [exStates, setExStates] = useState<Record<string, ExState>>(() =>
     Object.fromEntries(p.exercises.map((e) => [e.id, e.state])),
@@ -34,7 +37,22 @@ export function LessonView(p: Props) {
   const [tbResult, setTbResult] = useState<TeachbackResult | null>(null);
   const [tbBusy, setTbBusy] = useState(false);
 
-  const n = p.chunks.length;
+  // First visit: the tutor plans the lesson's steps from both sources.
+  const plan = useCallback(async () => {
+    setPlanError(null);
+    try {
+      const r = await post<{ steps: StepInfo[] }>(`/api/lesson/${p.lesson.id}/plan`);
+      setSteps(r.steps);
+      setPassed(r.steps.map((x) => x.passed));
+    } catch (e) {
+      setPlanError((e as Error).message);
+    }
+  }, [p.lesson.id]);
+  useEffect(() => {
+    if (!steps.length) plan();
+  }, [steps.length, plan]);
+
+  const n = steps.length;
   const TEACH = n;
   const PRACTICE = n + 1;
   const firstOpen = passed.findIndex((x) => !x);
@@ -55,8 +73,8 @@ export function LessonView(p: Props) {
 
   useEffect(() => {
     const allEx = Object.values(exStates).every((s) => s.done);
-    if (!completed && teachback && allEx && passed.every(Boolean)) tryComplete();
-  }, [exStates, teachback, passed, completed, tryComplete]);
+    if (!completed && n > 0 && teachback && allEx && passed.every(Boolean)) tryComplete();
+  }, [exStates, teachback, passed, completed, tryComplete, n]);
 
   const sendTeachback = async (text: string) => {
     setTbBusy(true);
@@ -80,20 +98,29 @@ export function LessonView(p: Props) {
         </p>
         <h1 className="lesson-head">{p.lesson.title}</h1>
         <p className="attribution">
-          Based on <a href={p.lesson.sourceUrl} target="_blank" rel="noreferrer">javascript.info</a> by Ilya Kantor (CC BY-NC).
+          Built from <a href={p.lesson.sourceUrl} target="_blank" rel="noreferrer">javascript.info</a>
+          {p.odin.length > 0 && (
+            <>
+              {" "}+{" "}
+              <a href={p.odin[0].url} target="_blank" rel="noreferrer">
+                The Odin Project
+              </a>
+            </>
+          )}
+          .
         </p>
 
         <div className="bar thin" aria-label={`${passed.filter(Boolean).length} of ${n} steps done`}>
           <span style={{ width: `${((passed.filter(Boolean).length + (teachback ? 1 : 0) + doneEx) / (n + 1 + p.exercises.length)) * 100}%` }} />
         </div>
         <nav className="steps" aria-label="Lesson steps">
-          {p.chunks.map((c, i) => (
+          {steps.map((c, i) => (
             <button
               key={c.id}
               className={`dot ${i === step ? "current" : ""} ${passed[i] ? "passed" : ""}`}
               disabled={i > maxStep}
               onClick={() => go(i)}
-              title={c.heading}
+              title={c.title}
             >
               {passed[i] ? "✔" : i + 1}
             </button>
@@ -134,12 +161,34 @@ export function LessonView(p: Props) {
           </div>
         )}
 
+        {n === 0 && (
+          <section className="card step">
+            {planError ? (
+              <p className="error">
+                {planError}{" "}
+                <button className="btn secondary" onClick={plan}>
+                  Try again
+                </button>
+              </p>
+            ) : (
+              <>
+                <h2>Planning your lesson…</h2>
+                <p className="big">
+                  Your tutor is reading this lesson on javascript.info{p.odin.length ? " and The Odin Project" : ""} and planning small
+                  steps that start from zero, so nothing is used before it’s explained.
+                </p>
+                <p className="muted">This happens once per lesson and can take up to a minute.</p>
+              </>
+            )}
+          </section>
+        )}
+
         {step < n && (
           <>
-            <ChunkStep
+            <StepView
+              step={steps[step]}
               stepLabel={`Step ${step + 1} of ${n}`}
-              chunk={p.chunks[step]}
-              sourceUrl={p.lesson.sourceUrl}
+              nextStepId={steps[step + 1]?.id ?? null}
               onPassed={() => setPassed((old) => old.map((x, i) => (i === step ? true : x)))}
             />
             <div className="row">
@@ -202,6 +251,16 @@ export function LessonView(p: Props) {
             ))}
           </>
         )}
+        <p className="sources">
+          Sources: <a href={p.lesson.sourceUrl} target="_blank" rel="noreferrer">javascript.info: {p.lesson.title}</a>
+          {p.odin.map((o) => (
+            <a key={o.url} href={o.url} target="_blank" rel="noreferrer">
+              The Odin Project: {o.title}
+            </a>
+          ))}
+          <br />
+          javascript.info by Ilya Kantor (CC BY-NC) · The Odin Project (CC BY-NC-SA). Lessons are rewritten for you by your AI tutor.
+        </p>
       </div>
       <TutorChat lessonId={p.lesson.id} initial={p.chat} />
     </div>

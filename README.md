@@ -1,21 +1,30 @@
 # CodeTutor
 
-A personal AI tutor that teaches JavaScript **one small idea at a time**, using
-[javascript.info](https://javascript.info) as the textbook. It is built for
-learners who find long pages of text hard: every step is short, can be read
-aloud, and ends with a question.
+A personal AI tutor that teaches JavaScript **from zero**, merging two great free courses:
+[javascript.info](https://javascript.info) (depth) and [The Odin Project](https://www.theodinproject.com)
+(beginner context: how the web works, HTML, running code in a page). It is built for learners who
+find long pages of text hard: everything comes in small pieces, can be read aloud, and is checked.
 
-## The learning loop
+## How a lesson works
 
-For every lesson:
+1. **Planned from zero.** The first time you open a lesson, the tutor reads the javascript.info
+   lesson and the matching Odin lessons, and plans small steps so nothing is ever used before it is
+   explained (e.g. "What a web page is" → "Tags" → "The script tag" → "Your first line of code").
+2. **Each step, one card at a time:**
+   - 💡 **Why this matters**: the problem it solves
+   - 📖 **New words**: every term and symbol, defined in plain English
+   - ⚙️ **How it works**: step by step
+   - 🧠 **Picture it**: an everyday analogy
+   - 🔍 **The code, line by line**: what every line and symbol means, then **try it** yourself
+     (HTML examples show the real page and its console)
+   - 🌍 **In real life** and common mistakes
+   - ✋ **Your turn**: one question, typed or 🎤 spoken. Two misses and the tutor explains it another way.
+   Every card has 🔊 **Listen** and 🙋 **Explain this more simply** (asks the tutor chat).
+3. **Teach-back**: explain the whole lesson in your own words. The tutor grades it.
+4. **Practice**: the javascript.info exercises, in a real code editor with **Run** and **Check**.
 
-1. **Explain**: one small idea in about 120 words, with an everyday analogy. Press 🔊 to hear it.
-2. **Try it**: a tiny code example you can run and change.
-3. **Check**: one question. Type or 🎤 speak your answer. You can't move on until it's right.
-   Get it wrong twice and the tutor explains it a different way.
-4. **Teach-back**: explain the whole lesson in your own words. The tutor grades it.
-5. **Practice**: the javascript.info exercises, in a real code editor with **Run** and **Check**.
-
+Steps are written once and saved (the next step is written while you read the current one), and
+every JavaScript example is run on the server first, so the output shown is the real output.
 A lesson is complete only when every check, the teach-back, and every exercise pass.
 Lessons unlock in order.
 
@@ -49,7 +58,7 @@ You need [Node.js](https://nodejs.org) 20 or newer, Git, and an API key from any
 
 ```bash
 npm install
-npm run import                 # downloads javascript.info and builds the lessons
+npm run import                 # downloads javascript.info + The Odin Project, builds the lessons
 npm run dev                    # open http://localhost:3000
 ```
 
@@ -95,7 +104,9 @@ To keep it low:
 | AI calls for any provider, and cost tracking | `src/lib/ai.ts` |
 | Which model does what (Settings + env vars) | `src/lib/models.ts` |
 | Code runner (Web Worker, 3-second limit, fake `alert`/`prompt`, mocha-style tests) | `src/lib/sandbox*.{ts,js}` |
+| Lesson planning and deep steps (both sources merged) | `src/lib/steps.ts` |
 | javascript.info importer | `scripts/import-jsinfo.ts`, `src/lib/jsinfo-parse.ts` |
+| The Odin Project importer and lesson mapping | `scripts/import-odin.ts`, `src/lib/odin.ts` |
 | Database (SQLite + Drizzle, file in `data/`) | `src/db` |
 
 ```bash
@@ -103,12 +114,16 @@ npm test          # unit tests
 npm run typecheck
 ```
 
-## Content license
+## Content licenses
 
-Lesson content comes from [javascript.info](https://github.com/javascript-tutorial/en.javascript.info)
-by Ilya Kantor, licensed [CC BY-NC](https://creativecommons.org/licenses/by-nc/4.0/). It is
-downloaded to your machine by `npm run import` and is **not** stored in this repository.
-Use it for personal, non-commercial learning, keep the attribution, and don't republish it.
+- [javascript.info](https://github.com/javascript-tutorial/en.javascript.info) by Ilya Kantor,
+  [CC BY-NC](https://creativecommons.org/licenses/by-nc/4.0/).
+- [The Odin Project curriculum](https://github.com/TheOdinProject/curriculum),
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+Both are downloaded to your machine by `npm run import` and are **not** stored in this repository.
+The lessons the tutor writes from them stay on your machine too. Use them for personal,
+non-commercial learning, keep the attribution, and don't republish them.
 
 ## Roadmap
 

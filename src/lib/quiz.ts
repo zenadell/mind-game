@@ -100,7 +100,7 @@ export async function startQuiz(blockId: string) {
       system: QUIZ_SYSTEM,
       prompt: `${text}\n\nWrite the quiz now.`,
       shape: QuizShape,
-      maxTokens: 6000,
+      maxTokens: 24000,
     });
     questions = verifyQuestions(res.questions).slice(0, 6);
   }

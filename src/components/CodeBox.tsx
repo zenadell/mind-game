@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { runCode, type RunResult } from "@/lib/sandbox";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), {
@@ -21,20 +21,29 @@ type Props = {
   /** Lines fed to prompt()/confirm(); pass these to control them from outside. */
   inputs?: string;
   onInputsChange?: (s: string) => void;
+  /** "html" shows the page in a safe preview box, with its console output below. */
+  language?: "javascript" | "html";
 };
 
 /** Code editor with a Run button and an output panel. */
-export function CodeBox({ code, onChange, height = 200, blockPaste, children, onRun, ...props }: Props) {
+export function CodeBox({ code, onChange, height = 200, blockPaste, children, onRun, language = "javascript", ...props }: Props) {
   const [result, setResult] = useState<RunResult | null>(null);
   const [ownInputs, setOwnInputs] = useState("");
   const inputs = props.inputs ?? ownInputs;
   const setInputs = props.onInputsChange ?? setOwnInputs;
   const [running, setRunning] = useState(false);
-  const usesPrompt = /\b(prompt|confirm)\s*\(/.test(code);
+  const [page, setPage] = useState<{ doc: string; n: number } | null>(null);
+  const usesPrompt = language === "javascript" && /\b(prompt|confirm)\s*\(/.test(code);
   const blockRef = useRef(blockPaste);
   blockRef.current = blockPaste;
 
   const run = async () => {
+    if (language === "html") {
+      // Show the page; its console output arrives from the preview box as messages.
+      setResult({ logs: [], error: null, results: null });
+      setPage((p) => ({ doc: CAPTURE + code, n: (p?.n ?? 0) + 1 }));
+      return;
+    }
     setRunning(true);
     const r = await runCode(code, { inputs: splitInputs(inputs) });
     setResult(r);
@@ -47,7 +56,7 @@ export function CodeBox({ code, onChange, height = 200, blockPaste, children, on
       <div className="editor" style={{ height }}>
         <Editor
           height={height}
-          defaultLanguage="javascript"
+          defaultLanguage={language}
           value={code}
           onChange={(v) => onChange?.(v ?? "")}
           theme="vs-dark"
@@ -83,7 +92,14 @@ export function CodeBox({ code, onChange, height = 200, blockPaste, children, on
         </button>
         {children}
       </div>
-      {result && <Output result={result} />}
+      {page && <PagePreview key={page.n} doc={page.doc} onLog={(l) => setResult((r) => ({ logs: [...(r?.logs ?? []), l], error: null, results: null }))} />}
+      {result && language === "javascript" && <Output result={result} />}
+      {result && language === "html" && result.logs.length > 0 && (
+        <div className="preview">
+          <div className="preview-bar">The console (what console.log printed)</div>
+          <Output result={result} />
+        </div>
+      )}
     </div>
   );
 }
@@ -111,5 +127,29 @@ export function Output({ result }: { result: RunResult }) {
         </div>
       ))}
     </pre>
+  );
+}
+
+// Injected first into an HTML preview so console.log / alert / errors show up below it.
+const CAPTURE = `<script>(function(){var s=function(t,a){parent.postMessage({__ct:1,type:t,text:[].map.call(a,function(x){return typeof x==="string"?x:JSON.stringify(x)}).join(" ")},"*")};console.log=function(){s("log",arguments)};console.info=console.log;console.warn=function(){s("warn",arguments)};console.error=function(){s("error",arguments)};window.alert=function(m){s("alert",[String(m)])};window.onerror=function(m){s("error",[m])}})();</script>`;
+
+/** A web page rendered in a sandboxed box: scripts run, but can't touch this app. */
+function PagePreview({ doc, onLog }: { doc: string; onLog: (l: { type: "log" | "warn" | "error" | "alert"; text: string }) => void }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const cb = useRef(onLog);
+  cb.current = onLog;
+  useEffect(() => {
+    const on = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow || !e.data?.__ct) return;
+      cb.current({ type: e.data.type, text: String(e.data.text) });
+    };
+    window.addEventListener("message", on);
+    return () => window.removeEventListener("message", on);
+  }, []);
+  return (
+    <div className="preview">
+      <div className="preview-bar">The web page</div>
+      <iframe ref={frame} title="Page preview" sandbox="allow-scripts" srcDoc={doc} />
+    </div>
   );
 }

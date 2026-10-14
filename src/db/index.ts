@@ -58,13 +58,27 @@ CREATE TABLE IF NOT EXISTS quizzes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, block_id TEXT NOT NULL, questions_json TEXT NOT NULL,
   results_json TEXT, score REAL, passed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
   finished_at INTEGER);
+CREATE TABLE IF NOT EXISTS odin_lessons (path TEXT PRIMARY KEY, title TEXT NOT NULL, url TEXT NOT NULL, body_md TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS lesson_odin (lesson_id TEXT NOT NULL, odin_path TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS steps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, lesson_id TEXT NOT NULL, ord INTEGER NOT NULL, title TEXT NOT NULL,
+  goal TEXT NOT NULL, content_json TEXT, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS steps_lesson ON steps(lesson_id, ord);
 `;
+
+// Columns added after the first release. Adding one that already exists throws, which is fine.
+const MIGRATIONS = ["ALTER TABLE checks ADD COLUMN step_id INTEGER"];
 
 export function openDb(file = process.env.CODETUTOR_DB ?? path.join(process.cwd(), "data", "codetutor.db")) {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
   const sqlite = new Database(file);
   sqlite.pragma("journal_mode = WAL");
   sqlite.exec(DDL);
+  for (const m of MIGRATIONS) {
+    try {
+      sqlite.exec(m);
+    } catch {}
+  }
   return drizzle(sqlite, { schema });
 }
 

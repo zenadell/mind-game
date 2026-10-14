@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "import": "tsx scripts/import-jsinfo.ts",
+    "import": "tsx scripts/import-jsinfo.ts && tsx scripts/import-odin.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts tests/*.test.mts"
   },
