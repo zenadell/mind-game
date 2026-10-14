@@ -74,7 +74,7 @@ function ModelSection({
   const [priceIn, setPriceIn] = useState(saved.priceIn?.toString() ?? "");
   const [priceOut, setPriceOut] = useState(saved.priceOut?.toString() ?? "");
   const [same, setSame] = useState(!!saved.sameAsTutor);
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<{ id: string; name?: string }[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error" | "warn"; text: string } | null>(null);
 
@@ -115,10 +115,11 @@ function ModelSection({
 
   const loadModels = () =>
     run("models", async () => {
-      const r = await post<{ models: string[] }>("/api/settings/models", form());
+      const r = await post<{ models: { id: string; name?: string }[] }>("/api/settings/models", form());
       setModels(r.models);
       setMsg({ kind: "ok", text: `Found ${r.models.length} model${r.models.length === 1 ? "" : "s"}. Pick one below.` });
-      if (!model && r.models[0]) setModel(r.models[0]);
+      // Replace a name the provider doesn't know with the first real one.
+      if (r.models[0] && !r.models.some((m) => m.id === model)) setModel(r.models[0].id);
     });
 
   const test = () =>
@@ -205,15 +206,23 @@ function ModelSection({
         </div>
         <datalist id={`models-${role}`}>
           {models.map((m) => (
-            <option key={m} value={m} />
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
           ))}
         </datalist>
       </label>
       {models.length > 0 && (
         <div className="chips">
           {models.map((m) => (
-            <button type="button" key={m} className={`chip ${m === model ? "on" : ""}`} onClick={() => setModel(m)}>
-              {m}
+            <button type="button" key={m.id} className={`chip ${m.id === model ? "on" : ""}`} onClick={() => setModel(m.id)}>
+              {m.name ? (
+                <>
+                  <b>{m.name}</b> <span className="small">({m.id})</span>
+                </>
+              ) : (
+                m.id
+              )}
             </button>
           ))}
         </div>

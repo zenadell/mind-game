@@ -348,20 +348,26 @@ export async function streamTutor(opts: {
 
 // ---------- Settings helpers ----------
 
-/** List the model names a provider offers (so new models show up without code changes). */
-export async function listModels(cfg: ModelConfig): Promise<string[]> {
+/** A model a provider offers: the ID to use, and its full name when the provider gives one. */
+export type ModelInfo = { id: string; name?: string };
+
+/** List the models a provider offers (so new models show up without code changes). */
+export async function listModels(cfg: ModelConfig): Promise<ModelInfo[]> {
   if (cfg.protocol === "anthropic") {
-    const ids: string[] = [];
+    const out: ModelInfo[] = [];
     try {
-      for await (const m of anthropicClient(cfg).models.list()) ids.push(m.id);
+      for await (const m of anthropicClient(cfg).models.list()) out.push({ id: m.id, name: m.display_name });
     } catch (e) {
       anthropicError(e);
     }
-    return ids;
+    return out;
   }
   const res = await openaiFetch(cfg, "/models");
-  const data = (await res.json()) as { data?: { id: string }[]; models?: { name: string }[] };
-  return (data.data?.map((m) => m.id) ?? data.models?.map((m) => m.name) ?? []).sort();
+  const data = (await res.json()) as { data?: { id: string; name?: string }[]; models?: { name: string }[] };
+  const list: ModelInfo[] = data.data?.map((m) => ({ id: m.id, name: m.name })) ?? data.models?.map((m) => ({ id: m.name })) ?? [];
+  return list
+    .map((m) => (m.name && m.name.toLowerCase() !== m.id.toLowerCase() ? m : { id: m.id }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** Send a tiny request to check the key and model work. */
