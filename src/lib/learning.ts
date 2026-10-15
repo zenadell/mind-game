@@ -11,7 +11,7 @@ import {
   TEACHBACK_SYSTEM,
   TeachbackShape,
 } from "./prompts";
-import { lessonSources, lessonSteps, passedSteps } from "./steps";
+import { ensureSteps, lessonSources, passedSteps, type LessonSources } from "./steps";
 
 export { NotFound, dayKey, markActive };
 
@@ -172,11 +172,12 @@ export function lessonDetail(lessonId: string) {
   const lesson = d.select().from(schema.lessons).where(eq(schema.lessons.id, lessonId)).get();
   if (!lesson) return null;
   const passed = passedSteps(lessonId);
-  const steps = lessonSteps(lessonId).map((s) => ({
+  const steps = ensureSteps(lessonId).map((s) => ({
     id: s.id,
     title: s.title,
-    goal: s.goal,
-    ready: !!s.contentJson,
+    sourceName: s.sourceName ?? "",
+    sourceUrl: s.sourceUrl ?? "",
+    bodyMd: s.bodyMd ?? "",
     passed: passed.has(s.id),
   }));
   const sources = lessonSources(lessonId);
@@ -207,7 +208,11 @@ export function lessonDetail(lessonId: string) {
   return {
     lesson,
     steps,
-    odin: sources.odin.map((o) => ({ title: o.title, url: o.url })),
+    odin: sources.odin
+      .map((o) => ({ title: o.title, url: o.url }))
+      .filter((o, i, all) => all.findIndex((x) => x.url === o.url) === i),
+    goals: sources.goals,
+    reading: sources.reading,
     exercises,
     teachbackPassed: teachback?.verdict === "understood",
     status: prog?.status ?? "available",
@@ -281,8 +286,7 @@ export function tryComplete(lessonId: string): { completed: boolean; missing: st
 export async function gradeTeachback(lessonId: string, text: string) {
   const detail = lessonDetail(lessonId);
   if (!detail) throw new NotFound("lesson");
-  const plan = detail.steps.map((st, i) => `${i + 1}. ${st.title}: ${st.goal}`).join("\n");
-  const summary = `Steps taught:\n${plan}\n\n${lessonSources(lessonId).jsinfo}`;
+  const summary = allSourceText(lessonSources(lessonId));
   const res = await askJson({
     purpose: "grade-teachback",
     role: "grader",
@@ -422,12 +426,17 @@ export function saveMessage(lessonId: string, role: "user" | "assistant", conten
 export function lessonContextForTutor(lessonId: string): string {
   const detail = lessonDetail(lessonId);
   if (!detail) throw new NotFound("lesson");
-  const src = lessonSources(lessonId);
-  const plan = detail.steps.map((st, i) => `${i + 1}. ${st.title}: ${st.goal}`).join("\n");
-  const odin = src.odin.map((o) => `<odin_lesson title="${o.title}">\n${o.body}\n</odin_lesson>`).join("\n\n");
-  const text = `Steps of this lesson:\n${plan || "(not planned yet)"}\n\n<javascript_info>\n${src.jsinfo}\n</javascript_info>\n\n${odin}`;
+  const text = allSourceText(lessonSources(lessonId));
   const tasks = detail.exercises.map((e) => `- ${e.title}: ${e.promptMd.split("\n")[0]}`).join("\n");
   return `<lesson title="${detail.lesson.title}" source="${detail.lesson.sourceUrl}">\n${text}\n</lesson>\n\n<exercises_the_learner_must_solve>\n${tasks || "(none)"}\n</exercises_the_learner_must_solve>`;
 }
 
 
+
+/** The whole lesson as the learner reads it: Odin sections, then javascript.info. */
+function allSourceText(src: LessonSources): string {
+  const odin = src.odin
+    .flatMap((o) => o.sections.map((x) => `<odin_section lesson="${o.title}" title="${x.heading}">\n${x.body}\n</odin_section>`))
+    .join("\n\n");
+  return `${odin}\n\n<javascript_info>\n${src.jsinfo}\n</javascript_info>`;
+}

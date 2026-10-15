@@ -96,7 +96,7 @@ export function CodeBox({ code, onChange, height = 200, blockPaste, children, on
       {result && language === "javascript" && <Output result={result} />}
       {result && language === "html" && result.logs.length > 0 && (
         <div className="preview">
-          <div className="preview-bar">The console (what console.log printed)</div>
+          <div className="preview-bar">Messages from the code (console.log and alert)</div>
           <Output result={result} />
         </div>
       )}

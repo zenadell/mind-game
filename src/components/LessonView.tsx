@@ -7,12 +7,14 @@ import { AnswerBox } from "./AnswerBox";
 import { ExerciseCard, type ExState, type Exercise } from "./ExerciseCard";
 import { InlineMd } from "./Markdown";
 import { ReadAloud } from "./Speech";
-import { StepView, type StepInfo } from "./StepView";
+import { SectionView, type SectionInfo } from "./SectionView";
 import { TutorChat } from "./TutorChat";
 
 type Props = {
   lesson: { id: string; title: string; chapter: string; sourceUrl: string };
-  steps: StepInfo[];
+  steps: SectionInfo[];
+  goals: string[];
+  reading: { text: string; url: string }[];
   odin: { title: string; url: string }[];
   exercises: Exercise[];
   teachbackPassed: boolean;
@@ -26,8 +28,7 @@ type Props = {
 type TeachbackResult = { verdict: "understood" | "partly" | "not_yet"; feedback: string; missing: string[] };
 
 export function LessonView(p: Props) {
-  const [steps, setSteps] = useState<StepInfo[]>(p.steps);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const steps = p.steps;
   const [passed, setPassed] = useState(() => p.steps.map((c) => c.passed));
   const [teachback, setTeachback] = useState(p.teachbackPassed);
   const [exStates, setExStates] = useState<Record<string, ExState>>(() =>
@@ -36,21 +37,6 @@ export function LessonView(p: Props) {
   const [completed, setCompleted] = useState(p.completed);
   const [tbResult, setTbResult] = useState<TeachbackResult | null>(null);
   const [tbBusy, setTbBusy] = useState(false);
-
-  // First visit: the tutor plans the lesson's steps from both sources.
-  const plan = useCallback(async () => {
-    setPlanError(null);
-    try {
-      const r = await post<{ steps: StepInfo[] }>(`/api/lesson/${p.lesson.id}/plan`);
-      setSteps(r.steps);
-      setPassed(r.steps.map((x) => x.passed));
-    } catch (e) {
-      setPlanError((e as Error).message);
-    }
-  }, [p.lesson.id]);
-  useEffect(() => {
-    if (!steps.length) plan();
-  }, [steps.length, plan]);
 
   const n = steps.length;
   const TEACH = n;
@@ -161,33 +147,24 @@ export function LessonView(p: Props) {
           </div>
         )}
 
-        {n === 0 && (
-          <section className="card step">
-            {planError ? (
-              <p className="error">
-                {planError}{" "}
-                <button className="btn secondary" onClick={plan}>
-                  Try again
-                </button>
-              </p>
-            ) : (
-              <>
-                <h2>Planning your lesson…</h2>
-                <p className="big">
-                  Your tutor is reading this lesson on javascript.info{p.odin.length ? " and The Odin Project" : ""} and planning small
-                  steps that start from zero, so nothing is used before it’s explained.
-                </p>
-                <p className="muted">This happens once per lesson and can take up to a minute.</p>
-              </>
-            )}
-          </section>
+        {step === 0 && p.goals.length > 0 && !completed && (
+          <div className="card soft tight">
+            <b>In this lesson you’ll learn to:</b>
+            <ul className="recap">
+              {p.goals.map((g) => (
+                <li key={g}>
+                  <InlineMd>{g}</InlineMd>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {step < n && (
           <>
-            <StepView
+            <SectionView
               step={steps[step]}
-              stepLabel={`Step ${step + 1} of ${n}`}
+              stepLabel={`Part ${step + 1} of ${n}`}
               nextStepId={steps[step + 1]?.id ?? null}
               onPassed={() => setPassed((old) => old.map((x, i) => (i === step ? true : x)))}
             />
@@ -251,6 +228,22 @@ export function LessonView(p: Props) {
             ))}
           </>
         )}
+        {p.reading.length > 0 && (
+          <details className="card soft tight">
+            <summary>
+              <b>Want to go deeper?</b> The Odin Project’s reading list for this topic
+            </summary>
+            <ul>
+              {p.reading.map((r) => (
+                <li key={r.url}>
+                  <a href={r.url} target="_blank" rel="noreferrer">
+                    {r.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <p className="sources">
           Sources: <a href={p.lesson.sourceUrl} target="_blank" rel="noreferrer">javascript.info: {p.lesson.title}</a>
           {p.odin.map((o) => (
@@ -259,7 +252,7 @@ export function LessonView(p: Props) {
             </a>
           ))}
           <br />
-          javascript.info by Ilya Kantor (CC BY-NC) · The Odin Project (CC BY-NC-SA). Lessons are rewritten for you by your AI tutor.
+          javascript.info by Ilya Kantor (CC BY-NC) · The Odin Project (CC BY-NC-SA). Shown as the authors wrote them; the notes around them are from your AI tutor.
         </p>
       </div>
       <TutorChat lessonId={p.lesson.id} initial={p.chat} />

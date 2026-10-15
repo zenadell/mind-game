@@ -38,6 +38,8 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
       lesson={d.lesson}
       steps={d.steps}
       odin={d.odin}
+      goals={d.goals}
+      reading={d.reading}
       exercises={d.exercises}
       teachbackPassed={d.teachbackPassed}
       completed={d.status === "completed"}

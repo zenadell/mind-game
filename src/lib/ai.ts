@@ -223,7 +223,18 @@ function fakeJson(purpose: string, prompt: string): unknown {
           { title: "(Offline demo) Printing a message", goal: "Use console.log to show a message." },
         ],
       };
+    case "section-help":
+      return {
+        about: "(Offline demo) This section shows how the idea works.",
+        words: [{ word: "console", meaning: "A panel where programs write messages." }],
+        recap: ["(Offline demo) Key point one.", "Key point two."],
+        question: "Why does this matter? (Offline demo: include the word 'because'.)",
+        answer_key: "Any answer.",
+      };
+    case "explain-code":
+      return { lines: [{ code: "(offline demo)", explain: "Explains the line." }], result: "It prints something." };
     case "write-step":
+    case "teach-from-zero":
       return {
         why: "(Offline demo) Programs need a way to show you what they are doing.",
         new_words: [{ word: "console", meaning: "A panel where programs write messages for the programmer." }],

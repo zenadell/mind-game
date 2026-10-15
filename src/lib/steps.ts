@@ -3,28 +3,38 @@ import { and, asc, eq, gt, lt } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson } from "./ai";
 import { NotFound, markActive } from "./core";
+import { odinTitle, odinUrl, parseSpec, splitOdin } from "./odin";
 import {
   CAN_REPLY,
   CHECK_SYSTEM,
+  CODE_EXPLAIN_SYSTEM,
   CheckShape,
-  OUTLINE_SYSTEM,
-  OutlineShape,
+  CodeExplainShape,
   REEXPLAIN_SYSTEM,
   ReexplainShape,
+  SECTION_HELP_SYSTEM,
   STEP_SYSTEM,
+  SectionHelpShape,
   StepShape,
+  type CodeExplain,
+  type SectionHelp,
   type StepContent,
 } from "./prompts";
 
-// A lesson is taught as steps the tutor plans from javascript.info + The Odin Project.
-// The plan is made once per lesson; each step's content is written the first time it
-// is opened (or prefetched), then saved, so it costs nothing to revisit.
+// A lesson is the ORIGINAL text, split into sections: first the matching Odin Project
+// sections (beginner context), then javascript.info (depth). The tutor helps around each
+// section: words to know, line-by-line code explanations, a recap, a check question, and
+// (if needed) a from-zero explanation. Every piece of help is written once and saved.
+
+export type OdinSource = { title: string; url: string; heading: string | null; sections: { heading: string; body: string }[] };
 
 export type LessonSources = {
   title: string;
   jsinfoUrl: string;
   jsinfo: string;
-  odin: { title: string; url: string; body: string }[];
+  odin: OdinSource[];
+  goals: string[];
+  reading: { text: string; url: string }[];
 };
 
 export function lessonSources(lessonId: string): LessonSources {
@@ -32,25 +42,31 @@ export function lessonSources(lessonId: string): LessonSources {
   const lesson = d.select().from(schema.lessons).where(eq(schema.lessons.id, lessonId)).get();
   if (!lesson) throw new NotFound("lesson");
   const chunks = d.select().from(schema.chunks).where(eq(schema.chunks.lessonId, lessonId)).orderBy(asc(schema.chunks.ord)).all();
-  const odin = d
-    .select({ title: schema.odinLessons.title, url: schema.odinLessons.url, body: schema.odinLessons.bodyMd })
-    .from(schema.lessonOdin)
-    .innerJoin(schema.odinLessons, eq(schema.lessonOdin.odinPath, schema.odinLessons.path))
-    .where(eq(schema.lessonOdin.lessonId, lessonId))
-    .all();
+  const specs = d.select().from(schema.lessonOdin).where(eq(schema.lessonOdin.lessonId, lessonId)).all();
+  const odin: OdinSource[] = [];
+  const goals: string[] = [];
+  const reading: { text: string; url: string }[] = [];
+  for (const { odinPath: spec } of specs) {
+    const { path, heading } = parseSpec(spec);
+    const file = d.select().from(schema.odinLessons).where(eq(schema.odinLessons.path, path)).get();
+    if (!file) continue;
+    const parts = splitOdin(file.bodyMd);
+    const sections = heading ? parts.sections.filter((s) => s.heading === heading) : parts.sections;
+    odin.push({ title: odinTitle(path), url: odinUrl(path), heading, sections });
+    if (!heading) {
+      // A whole Odin lesson belongs here: use its goals and reading list too.
+      goals.push(...parts.goals);
+      for (const r of parts.reading) if (!reading.some((x) => x.url === r.url)) reading.push(r);
+    }
+  }
   return {
     title: lesson.title,
     jsinfoUrl: lesson.sourceUrl,
     jsinfo: chunks.map((c) => `## ${c.heading}\n${c.bodyMd}`).join("\n\n"),
     odin,
+    goals,
+    reading,
   };
-}
-
-function sourcesText(s: LessonSources): string {
-  const odin = s.odin.length
-    ? s.odin.map((o) => `<odin_lesson title="${o.title}">\n${o.body}\n</odin_lesson>`).join("\n\n")
-    : "(no matching Odin Project lesson; use javascript.info and your own beginner-friendly background)";
-  return `<javascript_info_lesson title="${s.title}">\n${s.jsinfo}\n</javascript_info_lesson>\n\n${odin}`;
 }
 
 /** Titles of lessons before this one: what the learner has already been taught. */
@@ -68,7 +84,7 @@ function earlierLessons(lessonId: string): string[] {
 }
 
 /** Titles of the next lessons: topics this lesson must leave for later. */
-function laterLessons(lessonId: string, count = 25): string[] {
+function laterLessons(lessonId: string, count = 15): string[] {
   const d = db();
   const l = d.select().from(schema.lessons).where(eq(schema.lessons.id, lessonId)).get();
   if (!l) return [];
@@ -86,6 +102,52 @@ export function lessonSteps(lessonId: string) {
   return db().select().from(schema.steps).where(eq(schema.steps.lessonId, lessonId)).orderBy(asc(schema.steps.ord)).all();
 }
 
+/**
+ * The lesson's steps: one per section of the original text. Built instantly (no AI) the
+ * first time. Lessons planned the older way (AI-rewritten steps) are rebuilt.
+ */
+export function ensureSteps(lessonId: string) {
+  const existing = lessonSteps(lessonId);
+  if (existing.length && existing.every((s) => s.kind === "source")) return existing;
+  const src = lessonSources(lessonId);
+  const d = db();
+  const now = Date.now();
+  const rows: (typeof schema.steps.$inferInsert)[] = [];
+  for (const o of src.odin)
+    for (const s of o.sections)
+      rows.push({
+        lessonId,
+        ord: 0,
+        // Every Odin lesson starts with "Introduction"; name it after its lesson instead.
+        title: /^introduction$/i.test(s.heading) ? o.title : s.heading,
+        goal: "",
+        kind: "source",
+        sourceName: "The Odin Project",
+        sourceUrl: o.url,
+        bodyMd: s.body,
+        createdAt: now,
+      });
+  const chunks = d.select().from(schema.chunks).where(eq(schema.chunks.lessonId, lessonId)).orderBy(asc(schema.chunks.ord)).all();
+  for (const c of chunks)
+    rows.push({ lessonId, ord: 0, title: c.heading, goal: "", kind: "source", sourceName: "javascript.info", sourceUrl: src.jsinfoUrl, bodyMd: c.bodyMd, createdAt: now });
+  d.transaction((tx) => {
+    tx.delete(schema.steps).where(eq(schema.steps.lessonId, lessonId)).run();
+    rows.forEach((r, i) => tx.insert(schema.steps).values({ ...r, ord: i }).run());
+  });
+  return lessonSteps(lessonId);
+}
+
+/** Kept for the /plan route: building steps is now instant. */
+export async function planLesson(lessonId: string) {
+  return ensureSteps(lessonId);
+}
+
+function stepRow(stepId: number) {
+  const step = db().select().from(schema.steps).where(eq(schema.steps.id, stepId)).get();
+  if (!step) throw new NotFound("step");
+  return step;
+}
+
 // One generation at a time per key, so a prefetch and a click don't pay twice.
 const pending = new Map<string, Promise<unknown>>();
 function once<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -96,39 +158,93 @@ function once<T>(key: string, fn: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/** Make (once) the lesson's step plan from both sources. */
-export function planLesson(lessonId: string) {
-  const existing = lessonSteps(lessonId);
-  if (existing.length) return Promise.resolve(existing);
-  return once(`plan:${lessonId}`, async () => {
-    const src = lessonSources(lessonId);
-    const earlier = earlierLessons(lessonId);
-    const res = await askJson({
-      purpose: "plan-lesson",
-      role: "tutor",
-      system: OUTLINE_SYSTEM,
-      prompt: [
-        sourcesText(src),
-        `Lessons the learner has ALREADY learned (in order): ${earlier.length ? earlier.join("; ") : "none, this is their very first lesson"}.`,
-        `Lessons that come AFTER this one, each teaching its own topic: ${laterLessons(lessonId).join("; ") || "none"}. Do NOT plan steps for those topics, even if the Odin text covers them; at most mention them in one sentence as coming later.`,
-        `Plan the steps for "${src.title}".`,
-      ].join("\n\n"),
-      shape: OutlineShape,
-      maxTokens: 32000,
-    });
-    const now = Date.now();
-    const d = db();
-    d.transaction((tx) => {
-      if (tx.select().from(schema.steps).where(eq(schema.steps.lessonId, lessonId)).get()) return;
-      res.steps.slice(0, 12).forEach((s, i) =>
-        tx.insert(schema.steps).values({ lessonId, ord: i, title: s.title, goal: s.goal, createdAt: now }).run(),
-      );
-    });
-    return lessonSteps(lessonId);
+/** Read a saved piece of help, or make it once and save it. */
+function cached<T>(stepId: number, key: string, parse: (json: unknown) => T, make: () => Promise<T>): Promise<T> {
+  const row = db()
+    .select()
+    .from(schema.stepCache)
+    .where(and(eq(schema.stepCache.stepId, stepId), eq(schema.stepCache.key, key)))
+    .get();
+  if (row) return Promise.resolve(parse(JSON.parse(row.json)));
+  return once(`${stepId}:${key}`, async () => {
+    const value = await make();
+    db()
+      .insert(schema.stepCache)
+      .values({ stepId, key, json: JSON.stringify(value) })
+      .onConflictDoUpdate({ target: [schema.stepCache.stepId, schema.stepCache.key], set: { json: JSON.stringify(value) } })
+      .run();
+    return value;
   });
 }
 
-/** Run a JavaScript example the tutor wrote. Returns its printed output, or the error. */
+/** What the learner already knows when reaching this step. */
+function knownBefore(step: typeof schema.steps.$inferSelect): string {
+  const earlier = lessonSteps(step.lessonId).filter((s) => s.ord < step.ord).map((s) => s.title);
+  return [
+    `Lessons already learned: ${earlierLessons(step.lessonId).join("; ") || "none, this is the very first lesson"}.`,
+    `Sections already read in this lesson: ${earlier.join("; ") || "none, this is the first section"}.`,
+    `Taught in LATER lessons: ${laterLessons(step.lessonId).join("; ") || "nothing"}.`,
+  ].join("\n");
+}
+
+function sectionText(step: typeof schema.steps.$inferSelect): string {
+  return `<section source="${step.sourceName}" lesson="${step.lessonId}" title="${step.title}">\n${step.bodyMd ?? ""}\n</section>`;
+}
+
+/** Before/after help for one section: words to know, what it's about, recap, check question. */
+export function sectionHelp(stepId: number): Promise<SectionHelp> {
+  const step = stepRow(stepId);
+  return cached(stepId, "help", (j) => SectionHelpShape.parse(j), () =>
+    askJson({
+      purpose: "section-help",
+      role: "tutor",
+      system: SECTION_HELP_SYSTEM,
+      prompt: `${knownBefore(step)}\n\n${sectionText(step)}`,
+      shape: SectionHelpShape,
+      maxTokens: 16000,
+    }),
+  );
+}
+
+/** Code blocks in a section's Markdown, in order (including ones inside > quotes). */
+export function codeBlocks(md: string): { lang: string; code: string }[] {
+  const out: { lang: string; code: string }[] = [];
+  let open: { lang: string; lines: string[] } | null = null;
+  for (const raw of md.split("\n")) {
+    const line = raw.replace(/^(> ?)+/, "");
+    const fence = line.match(/^```(\w*)/);
+    if (fence && !open) {
+      open = { lang: fence[1] || "", lines: [] };
+      continue;
+    }
+    if (open && /^```\s*$/.test(line)) {
+      out.push({ lang: open.lang, code: open.lines.join("\n") });
+      open = null;
+      continue;
+    }
+    if (open) open.lines.push(line);
+  }
+  return out;
+}
+
+/** Line-by-line explanation of the n-th code example in a section. */
+export function explainCode(stepId: number, index: number): Promise<CodeExplain> {
+  const step = stepRow(stepId);
+  const block = codeBlocks(step.bodyMd ?? "")[index];
+  if (!block) throw new NotFound("code example");
+  return cached(stepId, `code:${index}`, (j) => CodeExplainShape.parse(j), () =>
+    askJson({
+      purpose: "explain-code",
+      role: "tutor",
+      system: CODE_EXPLAIN_SYSTEM,
+      prompt: `${knownBefore(step)}\n\nThe section it comes from:\n${sectionText(step)}\n\nExplain this example (${block.lang || "code"}):\n\`\`\`\n${block.code}\n\`\`\``,
+      shape: CodeExplainShape,
+      maxTokens: 16000,
+    }),
+  );
+}
+
+/** Run a JavaScript example. Returns its printed output, or the error. */
 export function runExample(code: string): { ok: boolean; output: string } {
   const lines: string[] = [];
   const fmt = (v: unknown) => (typeof v === "string" ? v : typeof v === "object" && v !== null ? JSON.stringify(v) : String(v));
@@ -145,77 +261,42 @@ export function exampleCode(c: StepContent): string {
   return c.example.lines.map((l) => l.code).join("\n");
 }
 
-/** The deep content of one step: written once, checked, saved. */
-export function stepContent(stepId: number): Promise<StepContent> {
-  const d = db();
-  const step = d.select().from(schema.steps).where(eq(schema.steps.id, stepId)).get();
-  if (!step) throw new NotFound("step");
-  if (step.contentJson) return Promise.resolve(StepShape.parse(JSON.parse(step.contentJson)));
-  return once(`step:${stepId}`, async () => {
-    const src = lessonSources(step.lessonId);
-    const all = lessonSteps(step.lessonId);
-    const before = all.filter((s) => s.ord < step.ord).map((s) => `${s.title}: ${s.goal}`);
-    const after = all.filter((s) => s.ord > step.ord).map((s) => s.title);
-    const prompt = [
-      sourcesText(src),
-      `Already learned in earlier lessons: ${earlierLessons(step.lessonId).join("; ") || "nothing yet"}.`,
-      `Taught in LATER lessons (don't teach these here): ${laterLessons(step.lessonId, 15).join("; ") || "nothing"}.`,
-      `Already learned in earlier steps of this lesson:\n${before.map((b) => `- ${b}`).join("\n") || "- nothing yet (this is the first step)"}`,
-      `Coming in later steps (don't teach these yet): ${after.join("; ") || "nothing"}.`,
-      `Write step ${step.ord + 1} of ${all.length}: "${step.title}". Goal: ${step.goal}`,
-    ].join("\n\n");
-
-    let content: StepContent | null = null;
+/** "Teach me this from zero": the tutor's own full explanation of the section. */
+export function deepSection(stepId: number): Promise<StepContent> {
+  const step = stepRow(stepId);
+  return cached(stepId, "deep", (j) => StepShape.parse(j), async () => {
+    const prompt = `${knownBefore(step)}\n\nThe learner read this section of the real lesson and wants it taught again from zero, completely:\n${sectionText(step)}\n\nTeach exactly what this section teaches (all of it), as one step titled "${step.title}".`;
     let feedback = "";
-    for (let attempt = 0; attempt < 2 && !content; attempt++) {
-      const c = await askJson({
-        purpose: "write-step",
-        role: "tutor",
-        system: STEP_SYSTEM,
-        prompt: prompt + feedback,
-        shape: StepShape,
-        maxTokens: 32000,
-      });
-      if (c.example.language !== "javascript") {
-        content = c;
-        break;
-      }
-      // Make sure the example really runs, and show what it really prints.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const c = await askJson({ purpose: "teach-from-zero", role: "tutor", system: STEP_SYSTEM, prompt: prompt + feedback, shape: StepShape, maxTokens: 32000 });
+      if (c.example.language !== "javascript") return c;
+      // Make sure the tutor's example really runs, and show what it really prints.
       const run = runExample(exampleCode(c));
-      if (run.ok) content = { ...c, output: run.output || c.output };
-      else feedback = `\n\nYour previous example failed when run (${run.output}). Write a JavaScript example that runs on its own in a console.`;
-      if (!content && attempt === 1) content = { ...c, example: { language: "none", lines: [] }, output: "" };
+      if (run.ok) return { ...c, output: run.output || c.output };
+      feedback = `\n\nYour previous example failed when run (${run.output}). Write a JavaScript example that runs on its own in a console.`;
+      if (attempt === 1) return { ...c, example: { language: "none" as const, lines: [] }, output: "" };
     }
-    d.update(schema.steps).set({ contentJson: JSON.stringify(content) }).where(eq(schema.steps.id, stepId)).run();
-    return content!;
+    throw new Error("unreachable");
   });
 }
 
-/** After two wrong answers: explain the step again, differently. Not saved. */
+/** After several misses: explain the section again, differently, with a new question. Not saved. */
 export async function reexplainStep(stepId: number, wrongAnswers: string[]) {
-  const content = await stepContent(stepId);
-  const step = db().select().from(schema.steps).where(eq(schema.steps.id, stepId)).get()!;
+  const step = stepRow(stepId);
+  const help = await sectionHelp(stepId);
   return askJson({
     purpose: "re-explain",
     role: "tutor",
     system: REEXPLAIN_SYSTEM,
-    prompt: `Step: "${step.title}" (goal: ${step.goal})\n\nThe explanation they read:\n${content.explanation.join("\n")}\nAnalogy: ${content.analogy}\n\nQuestion: ${content.question}\nTheir wrong answers: ${wrongAnswers.join(" | ")}`,
+    prompt: `${sectionText(step)}\n\nQuestion: ${help.question}\nTheir wrong answers: ${wrongAnswers.join(" | ")}`,
     shape: ReexplainShape,
-    maxTokens: 6000,
+    maxTokens: 16000,
   });
 }
 
 /** Text the grader and reviews use for a step. */
-export function stepContext(title: string, c: StepContent): string {
-  return [
-    `Step: ${title}`,
-    c.why,
-    ...c.explanation,
-    c.example.lines.length ? "Example:\n" + exampleCode(c) : "",
-    c.new_words.map((w) => `${w.word}: ${w.meaning}`).join("\n"),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+export function stepContext(step: typeof schema.steps.$inferSelect): string {
+  return `Section "${step.title}" (${step.sourceName}):\n${(step.bodyMd ?? "").slice(0, 6000)}`;
 }
 
 export type Turn = { who: "learner" | "tutor"; text: string };
@@ -223,15 +304,13 @@ export type Turn = { who: "learner" | "tutor"; text: string };
 /** Grade an answer to a step's check. `history` holds earlier tries and feedback, so a reply
  *  to the tutor's follow-up question is judged in context. */
 export async function gradeStepCheck(stepId: number, question: string, answerKey: string, answer: string, history: Turn[] = []) {
-  const step = db().select().from(schema.steps).where(eq(schema.steps.id, stepId)).get();
-  if (!step) throw new NotFound("step");
-  const content = await stepContent(stepId);
+  const step = stepRow(stepId);
   const res = await askJson({
     purpose: "grade-check",
     role: "grader",
     system: CHECK_SYSTEM,
     prompt: [
-      `<lesson_piece>\n${stepContext(step.title, content)}\n</lesson_piece>`,
+      `<lesson_piece>\n${stepContext(step)}\n</lesson_piece>`,
       `Question: ${question}\nAnswer key: ${answerKey}`,
       history.length ? `Conversation so far:\n${history.map((t) => `${t.who === "learner" ? "Learner" : "You (tutor)"}: ${t.text}`).join("\n")}` : "",
       `Learner answer: ${answer}`,
@@ -247,18 +326,13 @@ export async function gradeStepCheck(stepId: number, question: string, answerKey
     .values({ chunkId: 0, stepId, question, answer, verdict: res.verdict, feedback: res.feedback, createdAt: Date.now() })
     .run();
   markActive();
-  return { ...res, lessonId: step.lessonId, context: stepContext(step.title, content) };
+  return { ...res, lessonId: step.lessonId, context: stepContext(step) };
 }
 
 /** Step ids with a correct check. */
 export function passedSteps(lessonId: string): Set<number> {
-  const ids = lessonSteps(lessonId).map((s) => s.id);
-  if (!ids.length) return new Set();
-  const rows = db()
-    .select({ stepId: schema.checks.stepId })
-    .from(schema.checks)
-    .where(and(eq(schema.checks.verdict, "correct")))
-    .all();
-  const set = new Set(ids);
-  return new Set(rows.map((r) => r.stepId).filter((x): x is number => x != null && set.has(x)));
+  const ids = new Set(lessonSteps(lessonId).map((s) => s.id));
+  if (!ids.size) return new Set();
+  const rows = db().select({ stepId: schema.checks.stepId }).from(schema.checks).where(eq(schema.checks.verdict, "correct")).all();
+  return new Set(rows.map((r) => r.stepId).filter((x): x is number => x != null && ids.has(x)));
 }

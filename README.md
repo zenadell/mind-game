@@ -1,30 +1,34 @@
 # CodeTutor
 
-A personal AI tutor that teaches JavaScript **from zero**, merging two great free courses:
-[javascript.info](https://javascript.info) (depth) and [The Odin Project](https://www.theodinproject.com)
-(beginner context: how the web works, HTML, running code in a page). It is built for learners who
-find long pages of text hard: everything comes in small pieces, can be read aloud, and is checked.
+A personal AI tutor for learning JavaScript **from zero**, built around two great free courses:
+[The Odin Project](https://www.theodinproject.com) (beginner context: how the web works, HTML,
+running code in a page) and [javascript.info](https://javascript.info) (depth). You read the
+**original lessons, exactly as the authors wrote them**, and the tutor sits beside you to make
+sure every word, line and idea makes sense. It is built for learners who find reading hard:
+small sections, read-aloud, and checks after every part.
 
 ## How a lesson works
 
-1. **Planned from zero.** The first time you open a lesson, the tutor reads the javascript.info
-   lesson and the matching Odin lessons, and plans small steps so nothing is ever used before it is
-   explained (e.g. "What a web page is" → "Tags" → "The script tag" → "Your first line of code").
-2. **Each step, one card at a time:**
-   - 💡 **Why this matters**: the problem it solves
-   - 📖 **New words**: every term and symbol, defined in plain English
-   - ⚙️ **How it works**: step by step
-   - 🧠 **Picture it**: an everyday analogy
-   - 🔍 **The code, line by line**: what every line and symbol means, then **try it** yourself
-     (HTML examples show the real page and its console)
-   - 🌍 **In real life** and common mistakes
-   - ✋ **Your turn**: one question, typed or 🎤 spoken. Two misses and the tutor explains it another way.
-   Every card has 🔊 **Listen** and 🙋 **Explain this more simply** (asks the tutor chat).
+1. **The original text, in small parts.** Each lesson is the matching Odin sections first, then
+   the javascript.info lesson, split at the authors' own headings. Nothing is summarised away:
+   every paragraph, example, diagram and "watch out" stays. It loads instantly.
+2. **The tutor around each part:**
+   - 👀 **Before you read**: what this part is about, and every word or symbol you'll meet,
+     explained in plain English.
+   - 📄 **Read** the original (🔊 Listen reads it aloud).
+     - Every code example has **▶ Try it** (runs in the page; HTML examples show the real page)
+       and **🔍 Explain line by line** (every line and symbol, and what happens when it runs).
+     - **Select any sentence** and press **🙋 Explain this**: the tutor explains it from zero in the chat.
+     - **🧑‍🏫 Still lost? Teach me this from zero**: the tutor's own full explanation of the part
+       (why it matters, words, how it works, an analogy, code line by line, real life, mistakes).
+   - ✍️ **In plain words**: a recap that keeps the important details.
+   - ✋ **Your turn**: one question, answered as a short conversation with the tutor (typed or
+     🎤 spoken). Reply to its follow-ups; after 3 misses it explains the part another way.
 3. **Teach-back**: explain the whole lesson in your own words. The tutor grades it.
 4. **Practice**: the javascript.info exercises, in a real code editor with **Run** and **Check**.
 
-Steps are written once and saved (the next step is written while you read the current one), and
-every JavaScript example is run on the server first, so the output shown is the real output.
+Odin's goals for the lesson are shown at the start, and its reading list ("Want to go deeper?")
+at the end. Everything the tutor writes is saved, so revisiting is instant and free.
 A lesson is complete only when every check, the teach-back, and every exercise pass.
 Lessons unlock in order.
 
@@ -86,7 +90,7 @@ Every tutor message is a paid API call. The bar at the top shows today's cost (h
 total). Add your model's prices in Settings to see dollars; without prices it shows tokens.
 To keep it low:
 
-- Explanations are made once per step and saved, so re-opening a step is free.
+- The tutor's notes are made once per part and saved, so re-opening a part is free.
 - You can point the grader at a cheaper model than the tutor.
 - The tutor only sees the current lesson, and that lesson text comes first in every request,
   so providers with prompt caching (DeepSeek, Claude, OpenAI) reuse it cheaply.
@@ -104,9 +108,9 @@ To keep it low:
 | AI calls for any provider, and cost tracking | `src/lib/ai.ts` |
 | Which model does what (Settings + env vars) | `src/lib/models.ts` |
 | Code runner (Web Worker, 3-second limit, fake `alert`/`prompt`, mocha-style tests) | `src/lib/sandbox*.{ts,js}` |
-| Lesson planning and deep steps (both sources merged) | `src/lib/steps.ts` |
+| Lesson parts from the original text, and the tutor's help around them | `src/lib/steps.ts` |
 | javascript.info importer | `scripts/import-jsinfo.ts`, `src/lib/jsinfo-parse.ts` |
-| The Odin Project importer and lesson mapping | `scripts/import-odin.ts`, `src/lib/odin.ts` |
+| The Odin Project importer and section-level lesson mapping | `scripts/import-odin.ts`, `src/lib/odin.ts` |
 | Database (SQLite + Drizzle, file in `data/`) | `src/db` |
 
 ```bash
@@ -122,7 +126,7 @@ npm run typecheck
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 Both are downloaded to your machine by `npm run import` and are **not** stored in this repository.
-The lessons the tutor writes from them stay on your machine too. Use them for personal,
+The tutor's notes about them stay on your machine too. Use them for personal,
 non-commercial learning, keep the attribution, and don't republish them.
 
 ## Roadmap

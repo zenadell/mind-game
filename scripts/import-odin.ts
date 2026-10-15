@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { openDb, schema } from "../src/db";
-import { ODIN_FOR, cleanOdin, odinTitle, odinUrl } from "../src/lib/odin";
+import { ODIN_FOR, cleanOdin, odinTitle, odinUrl, parseSpec, splitOdin } from "../src/lib/odin";
 
 const REPO = "https://github.com/TheOdinProject/curriculum.git";
 const repoDir = path.join(process.cwd(), "content", "curriculum");
@@ -33,20 +33,24 @@ db.transaction((tx) => {
       console.warn(`  (skipping ${lessonId}: no such javascript.info lesson)`);
       continue;
     }
-    for (const p of paths) {
+    for (const spec of paths) {
+      const { path: p, heading } = parseSpec(spec);
       const file = path.join(repoDir, p);
       if (!fs.existsSync(file)) {
         console.warn(`  (missing Odin file ${p})`);
         continue;
       }
+      const body = cleanOdin(fs.readFileSync(file, "utf8"));
+      if (heading && !splitOdin(body).sections.some((x) => x.heading === heading)) {
+        console.warn(`  (no section "${heading}" in ${p})`);
+        continue;
+      }
       if (!saved.has(p)) {
-        tx.insert(schema.odinLessons)
-          .values({ path: p, title: odinTitle(p), url: odinUrl(p), bodyMd: cleanOdin(fs.readFileSync(file, "utf8")) })
-          .run();
+        tx.insert(schema.odinLessons).values({ path: p, title: odinTitle(p), url: odinUrl(p), bodyMd: body }).run();
         saved.add(p);
         files++;
       }
-      tx.insert(schema.lessonOdin).values({ lessonId, odinPath: p }).run();
+      tx.insert(schema.lessonOdin).values({ lessonId, odinPath: spec }).run();
       links++;
     }
   }

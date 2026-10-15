@@ -12,3 +12,8 @@ export async function post<T>(url: string, body: unknown = {}): Promise<T> {
   window.dispatchEvent(new Event("ct-stats"));
   return data as T;
 }
+
+/** Ask the tutor chat (next to the lesson) to explain something more. */
+export function askTutor(text: string) {
+  window.dispatchEvent(new CustomEvent("ct-ask", { detail: text }));
+}

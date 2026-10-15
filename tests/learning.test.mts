@@ -51,7 +51,7 @@ test("lessons unlock in order and completion needs every gate", async () => {
       { id: "b", source: "s", sourceUrl: "u", path: "p", title: "B", chapter: "C", semester: 1, ord: 2 },
     ])
     .run();
-  const step = d.insert(schema.steps).values({ lessonId: "a", ord: 0, title: "t", goal: "g", createdAt: 1 }).returning().get();
+  d.insert(schema.chunks).values({ lessonId: "a", ord: 0, heading: "h", bodyMd: "body" }).run();
   d.insert(schema.exercises)
     .values({ id: "ex1", lessonId: "a", ord: 0, title: "t", sourceUrl: "u", importance: 3, promptMd: "p", starterCode: "", tests: "it('x', () => {})", solutionHidden: "secret" })
     .run();
@@ -64,6 +64,7 @@ test("lessons unlock in order and completion needs every gate", async () => {
   // Solution stays locked at the start.
   assert.equal(L.revealSolution("ex1").solution, null);
 
+  const step = L.lessonDetail("a")!.steps[0];
   d.insert(schema.checks).values({ chunkId: 0, stepId: step.id, question: "q", answer: "a", verdict: "correct", feedback: "", createdAt: 1 }).run();
   d.insert(schema.teachbacks).values({ lessonId: "a", text: "t", verdict: "understood", feedback: "", createdAt: 1 }).run();
   const r = await L.submitAttempt("ex1", "code", { testsPassed: true });

@@ -181,4 +181,16 @@ export const steps = sqliteTable("steps", {
   goal: text("goal").notNull(),
   contentJson: text("content_json"),
   createdAt: integer("created_at").notNull(),
+  // "source": a section of the original text (javascript.info or Odin), shown as written.
+  kind: text("kind").notNull().default("tutor"),
+  sourceName: text("source_name"),
+  sourceUrl: text("source_url"),
+  bodyMd: text("body_md"),
+});
+
+// The tutor's help for a step, written once and saved: "help", "deep", "code:<n>".
+export const stepCache = sqliteTable("step_cache", {
+  stepId: integer("step_id").notNull(),
+  key: text("key").notNull(),
+  json: text("json").notNull(),
 });

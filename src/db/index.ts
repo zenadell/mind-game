@@ -64,10 +64,17 @@ CREATE TABLE IF NOT EXISTS steps (
   id INTEGER PRIMARY KEY AUTOINCREMENT, lesson_id TEXT NOT NULL, ord INTEGER NOT NULL, title TEXT NOT NULL,
   goal TEXT NOT NULL, content_json TEXT, created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS steps_lesson ON steps(lesson_id, ord);
+CREATE TABLE IF NOT EXISTS step_cache (step_id INTEGER NOT NULL, key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY (step_id, key));
 `;
 
 // Columns added after the first release. Adding one that already exists throws, which is fine.
-const MIGRATIONS = ["ALTER TABLE checks ADD COLUMN step_id INTEGER"];
+const MIGRATIONS = [
+  "ALTER TABLE checks ADD COLUMN step_id INTEGER",
+  "ALTER TABLE steps ADD COLUMN kind TEXT NOT NULL DEFAULT 'tutor'",
+  "ALTER TABLE steps ADD COLUMN source_name TEXT",
+  "ALTER TABLE steps ADD COLUMN source_url TEXT",
+  "ALTER TABLE steps ADD COLUMN body_md TEXT",
+];
 
 export function openDb(file = process.env.CODETUTOR_DB ?? path.join(process.cwd(), "data", "codetutor.db")) {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });

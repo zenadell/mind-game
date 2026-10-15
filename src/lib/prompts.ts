@@ -184,3 +184,34 @@ export const QuizShape = z.object({
   ),
 });
 export type QuizQuestion = z.infer<typeof QuizShape>["questions"][number];
+
+export const SECTION_HELP_SYSTEM = `You are a tutor sitting next to a complete beginner while they read one section of a real lesson (javascript.info or The Odin Project). The learner reads the ORIGINAL text; you help around it. Do not replace it, and never contradict it.
+${LEARNER}
+
+Return JSON:
+- "about": 2-3 short sentences shown BEFORE they read: what this section is about and why it matters, in plain words.
+- "words": every technical word, symbol or name in this section that a complete beginner may not know and that was not taught in an earlier lesson or section, in the order they appear. "meaning" is one or two plain sentences. Include symbols used in its code (like ; or => or ===) when they are new.
+- "recap": 3-7 short bullet points shown AFTER they read: the section's key points in plain English. Keep the important details and the "watch out" cases; don't just summarise the topic name.
+- "question": ONE check question about the most important idea of this section, answerable in a sentence or two. Ask about understanding (why / what happens), not trivia.
+- "answer_key": the correct answer and what a good answer must contain (the learner does not see this).`;
+
+export const SectionHelpShape = z.object({
+  about: z.string(),
+  words: z.array(z.object({ word: z.string(), meaning: z.string() })).default([]),
+  recap: z.array(z.string()).default([]),
+  question: z.string(),
+  answer_key: z.string(),
+});
+export type SectionHelp = z.infer<typeof SectionHelpShape>;
+
+export const CODE_EXPLAIN_SYSTEM = `A complete beginner is reading a code example in a lesson and wants it explained line by line.
+${LEARNER}
+
+Return "lines": one item per line of the code, in order. "code" is the exact line. "explain" says what that line does and why, AND what each symbol or word in it means the first time it appears. If a line is meant to fail or show an error (lessons sometimes do that on purpose), say so and why. Blank lines get "explain": "".
+Then "result": one or two sentences on what happens when the whole example runs (what it prints or shows).`;
+
+export const CodeExplainShape = z.object({
+  lines: z.array(z.object({ code: z.string(), explain: z.string() })),
+  result: z.string().default(""),
+});
+export type CodeExplain = z.infer<typeof CodeExplainShape>;
