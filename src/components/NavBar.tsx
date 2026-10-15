@@ -16,6 +16,7 @@ type Stats = { streak: number; costToday: number; costTotal: number; tokensToday
 
 const LINKS = [
   { href: "/", label: "Learn" },
+  { href: "/train", label: "Train" },
   { href: "/review", label: "Review" },
   { href: "/report", label: "Report" },
   { href: "/settings", label: "Settings" },

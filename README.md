@@ -44,10 +44,36 @@ Every point you earn comes from a real learning action, so playing the game *is*
 - **🔥 Combos**: first-try answers in a row multiply your XP (x2 from 3, x3 from 6).
 - **🎯 Daily goal ring** (Casual 50, Regular 100, Serious 200 XP) and a **streak**; every 7 days
   of streak earns a **❄️ freeze** that saves your streak if you miss one day.
-- **🏆 18 achievements** (First Step, On Fire, No Hints Needed, Boss Slayer, Week Warrior, …).
+- **🏆 26 achievements** (First Step, On Fire, No Hints Needed, Boss Slayer, Week Warrior, …).
 - **⚔️ Boss fights**: the quiz after every 3 lessons is a boss. Each right answer is a hit; bring
   it to 30% health to unlock the next lessons.
 - Sounds can be turned off in the **Aa** menu.
+
+## 🥋 Train: real interview problems
+
+Once the lessons are done, **Train** is where you get hard. It has three kinds of practice:
+
+- **Interview problems** (76 of them: Easy, Medium and Hard), grouped by the patterns big tech interviews
+  test (the same patterns as the Blind 75 / NeetCode lists): two pointers, sliding window, stack, binary
+  search, linked lists, trees, dynamic programming, graphs, backtracking, intervals, greedy, plus
+  **real-world code** (parse a query string, flatten an object, a rate limiter) and **design & build**
+  (an LRU cache, a trie, a min-stack, a bank system).
+  - A problem **unlocks only when you've finished the lessons it needs**. The page tells you which.
+  - **📘 Learn the pattern** first if you're stuck: a full lesson on the idea, with a worked example
+    that is *not* one of the problems.
+  - Solve it like on LeetCode: **Run examples**, then **Submit** to run the hidden edge-case tests too.
+    A failing test shows the input, what was expected and what your code returned.
+  - **Hints** come one at a time, only after a real failed submit. The **solution** unlocks only after all
+    3 hints and 3 failed submits, and then you must rebuild it from memory (pasting is off).
+  - **⏱ Interview mode**: a clock (15 / 25 / 40 minutes), no hints, bonus XP for beating it.
+  - After you solve it, the interviewer asks **"What's the time and space complexity, and why?"**, and you
+    can compare with a model solution explained line by line, plus a code review of *your* code.
+  - Statements are written for CodeTutor; problems that match a LeetCode problem link to it.
+- **🔍 Code reading**: the tutor writes realistic code using only what you've learned. Predict what it
+  prints (checked by actually running it), find the bug, or explain what it does.
+
+Solving pays XP by difficulty (60 / 120 / 250), with bonuses for no hints, beating the clock, getting the
+complexity right and finishing a whole pattern, and 8 more achievements.
 
 ### Making it stick
 
@@ -119,6 +145,8 @@ To keep it low:
 | Next.js app (pages + API routes) | `src/app` |
 | Lesson, hint-ladder, completion, quiz-gating and streak rules | `src/lib/learning.ts` |
 | Spaced-repetition reviews | `src/lib/review.ts` |
+| Train: problem bank and its test harness (every reference solution is tested) | `src/lib/problems.ts` |
+| Train: unlocking, hints, interview mode, complexity, code reading | `src/lib/train.ts` |
 | Quizzes (generation, code-checked answers, grading) | `src/lib/quiz.ts` |
 | Weekly report | `src/lib/report.ts` |
 | XP, levels, combos, daily goal, achievements, streak freezes | `src/lib/game.ts`, `src/components/GameLayer.tsx` |
@@ -154,4 +182,5 @@ non-commercial learning, keep the attribution, and don't republish them.
 - **Phase 2 (done):** daily spaced-repetition review, quizzes every 3 lessons, weekly report,
   reading settings and a full design pass.
 - **Phase 3:** The Odin Project path (HTML/CSS, Node, React), capstone projects.
-- **Phase 4:** timed mastery exams with the tutor off, mock interviews, AI engineering track.
+- **Train (done):** interview problems by pattern, interview mode, complexity questions, code reading.
+- **Phase 4:** timed mastery exams with the tutor off, full mock interviews, AI engineering track.

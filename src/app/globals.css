@@ -409,3 +409,37 @@ a.plan-card:hover { border-color: var(--primary); transform: translateY(-1px); }
 .badge-emoji { font-size: 1.6rem; }
 .mission summary { cursor: pointer; }
 .xp-tag { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: rgb(255 255 255 / 0.22); font-size: 0.8rem; }
+
+/* ---------- Train ---------- */
+.diff { display: inline-flex; font-size: 0.78rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; }
+.diff-Easy { background: var(--ok-soft); color: var(--ok); }
+.diff-Medium { background: var(--warn-soft); color: var(--warn); }
+.diff-Hard { background: var(--err-soft); color: var(--err); }
+.problems .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.checklist { list-style: none; padding: 0; font-size: 1.05rem; }
+.checklist li { padding: 4px 0; }
+.checklist li.done { color: var(--ok); }
+.workspace { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 22px; align-items: start; }
+@media (max-width: 1000px) { .workspace { grid-template-columns: 1fr; } }
+.ws-title h1 { margin: 0 0 6px; }
+.ws-title .row { gap: 8px; align-items: center; margin-bottom: 14px; }
+.small-head { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 16px 0 8px; }
+.example { background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 8px; display: grid; gap: 4px; overflow-x: auto; }
+.example code { white-space: pre-wrap; word-break: break-word; }
+.primer .piece { margin-top: 14px; }
+.interview-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.interview-bar .small { flex: 1; }
+.interview-bar.on { border-style: solid; border-color: var(--primary); background: var(--primary-soft); }
+.interview-bar.over { border-style: solid; border-color: var(--err); background: var(--err-soft); }
+.interview-bar .clock { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; }
+.failure { background: var(--err-soft); border: 1px solid color-mix(in srgb, var(--err) 35%, transparent); border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; display: grid; gap: 4px; }
+.failure b { color: var(--err); }
+.failure code { white-space: pre-wrap; word-break: break-word; background: none; }
+.after-solve { margin-top: 16px; border-color: var(--ok); }
+.after-solve h3 { margin-top: 0; }
+.solution h3 { margin: 18px 0 8px; }
+.solution h3:first-child { margin-top: 0; }
+.reading .question { font-size: 1.15rem; font-weight: 600; }
+.reading .md pre { font-size: 0.98rem; }
+.plan-card .diff { align-self: flex-start; }
+.pattern-blurb { margin: 0; padding: 0 22px 12px; }

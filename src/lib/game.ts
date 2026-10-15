@@ -22,6 +22,17 @@ export const XP = {
   lesson: 100,
   quizRight: 10, // per right answer in a boss fight
   quizWin: 150,
+  // Train
+  problemEasy: 60,
+  problemMedium: 120,
+  problemHard: 250,
+  problemClean: 40, // bonus: solved without hints
+  problemStudied: 20, // rebuilt it after studying the solution
+  interview: 60, // solved in interview mode, in time
+  complexity: 30, // explained the time and space complexity
+  patternDone: 100, // solved every problem of a pattern
+  readingTry: 3,
+  readingRight: 25,
 } as const;
 
 const LEVEL_NAMES = [
@@ -130,6 +141,14 @@ export const BADGES: Badge[] = [
   { id: "level-5", emoji: "🐞", title: "Bug Hunter", desc: "Reached level 5." },
   { id: "night-owl", emoji: "🦉", title: "Night Owl", desc: "Learned after 10 pm." },
   { id: "early-bird", emoji: "🐦", title: "Early Bird", desc: "Learned before 7 am." },
+  { id: "solve-1", emoji: "🥋", title: "Into the Dojo", desc: "Solved your first training problem." },
+  { id: "solve-10", emoji: "🪨", title: "Rock Solid", desc: "Solved 10 training problems on your own." },
+  { id: "solve-25", emoji: "🏋️", title: "Iron Will", desc: "Solved 25 training problems on your own." },
+  { id: "hard-1", emoji: "🏔️", title: "Summit", desc: "Solved a Hard problem." },
+  { id: "pattern-1", emoji: "🧩", title: "Pattern Master", desc: "Solved every problem in a pattern." },
+  { id: "interview-1", emoji: "⏱️", title: "Interview Ready", desc: "Beat the interview clock." },
+  { id: "big-o", emoji: "📈", title: "Big-O Brain", desc: "Explained the complexity of 5 solutions." },
+  { id: "reader-10", emoji: "🔍", title: "Code Reader", desc: "Got 10 code-reading challenges right." },
 ];
 
 function countKind(kind: string): number {
@@ -160,6 +179,15 @@ function earnedNow(ctx: { total: number; combo: number; goalHit: boolean }): str
   add("level-5", levelOf(ctx.total).n >= 5);
   add("night-owl", hour >= 22);
   add("early-bird", hour < 7 && hour >= 4);
+  const solves = countKind("problemEasy") + countKind("problemMedium") + countKind("problemHard");
+  add("solve-1", solves + countKind("problemStudied") >= 1);
+  add("solve-10", solves >= 10);
+  add("solve-25", solves >= 25);
+  add("hard-1", countKind("problemHard") >= 1);
+  add("pattern-1", countKind("patternDone") >= 1);
+  add("interview-1", countKind("interview") >= 1);
+  add("big-o", countKind("complexity") >= 5);
+  add("reader-10", countKind("readingRight") >= 10);
   return ids;
 }
 

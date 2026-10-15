@@ -55,7 +55,7 @@ export const exerciseState = sqliteTable("exercise_state", {
   failedAttempts: integer("failed_attempts").notNull().default(0),
   solutionShown: integer("solution_shown", { mode: "boolean" }).notNull().default(false),
   passed: integer("passed", { mode: "boolean" }).notNull().default(false),
-  // After seeing the solution he must retype it from memory and explain it.
+  // After seeing the solution the learner must retype it from memory and explain it.
   retypePassed: integer("retype_passed", { mode: "boolean" }).notNull().default(false),
   explainPassed: integer("explain_passed", { mode: "boolean" }).notNull().default(false),
 });
@@ -212,4 +212,41 @@ export const badges = sqliteTable("badges", {
 
 export const freezeDays = sqliteTable("freeze_days", {
   day: text("day").primaryKey(), // a missed day covered by a streak freeze
+});
+
+// Train: interview problems and code-reading challenges.
+export const problemState = sqliteTable("problem_state", {
+  problemId: text("problem_id").primaryKey(),
+  attempts: integer("attempts").notNull().default(0),
+  failed: integer("failed").notNull().default(0),
+  hintsJson: text("hints_json").notNull().default("[]"), // the hints given so far, in order
+  solutionShown: integer("solution_shown", { mode: "boolean" }).notNull().default(false),
+  solvedAt: integer("solved_at"), // passed every test on their own (or after studying the solution)
+  interviewStart: integer("interview_start"), // interview mode: timer running, no hints
+  interviewMs: integer("interview_ms"), // time taken when solved in interview mode
+  complexityOk: integer("complexity_ok", { mode: "boolean" }).notNull().default(false),
+  code: text("code"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const trainCache = sqliteTable("train_cache", {
+  key: text("key").primaryKey(), // "primer:<pattern>", "editorial:<problem>"
+  json: text("json").notNull(),
+});
+
+export const readings = sqliteTable("readings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind").notNull(), // output | bug | explain
+  topic: text("topic").notNull(),
+  code: text("code").notNull(),
+  question: text("question").notNull(),
+  optionsJson: text("options_json").notNull().default("[]"),
+  correctIndex: integer("correct_index").notNull().default(-1),
+  answerKey: text("answer_key").notNull(),
+  explain: text("explain").notNull(),
+  answer: text("answer"),
+  verdict: text("verdict"), // correct | partly | wrong
+  feedback: text("feedback"),
+  createdAt: integer("created_at").notNull(),
+  answeredAt: integer("answered_at"),
 });

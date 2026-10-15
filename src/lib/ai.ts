@@ -272,6 +272,22 @@ function fakeJson(purpose: string, prompt: string): unknown {
       return { verdict: good ? "understood" : "partly", feedback: "(Offline demo feedback.)", missing: good ? [] : ["say 'because'"] };
     case "hint":
       return { hint: "(Offline demo hint) What is the first thing your code needs to do?" };
+    case "editorial":
+      return {
+        idea: "(Offline demo) The key idea of the solution.",
+        steps: ["Look at each item once.", "Remember what you've seen."],
+        lines: [],
+        complexity: "O(n) time, O(n) space.",
+        your_code: "(Offline demo) Clear names. Think about the empty input.",
+        follow_up: "What if the input were sorted?",
+      };
+    case "reading":
+      return /Kind: output/.test(prompt)
+        ? { topic: "loops", code: "let total = 0;\nfor (let i = 1; i <= 3; i++) total += i;\nconsole.log(total);", question: "What does this code print?", options: ["3", "6", "123", "0"], correct_index: 1, answer_key: "6", explain: "(Offline demo) 1 + 2 + 3 is 6." }
+        : { topic: "functions", code: "function f(a) {\n  let s = 0;\n  for (let i = 0; i < a.length; i++) s += a[i];\n  return s;\n}", question: "What does this function do? Suggest a better name. (Offline demo: include 'because')", options: [], correct_index: -1, answer_key: "Adds up the numbers: sum", explain: "(Offline demo) It sums an array." };
+    case "grade-complexity":
+    case "grade-reading":
+      return { verdict: /\b(because|n)\b/i.test(prompt.split(/answer:/i).pop() ?? "") ? "correct" : "wrong", feedback: "(Offline demo grading.)" };
     default:
       return { passed: /\S/.test(prompt.match(/<learner_code>([\s\S]*?)<\/learner_code>/)?.[1] ?? ""), feedback: "(Offline demo grading.)" };
   }
@@ -463,5 +479,6 @@ export async function testModel(cfg: ModelConfig): Promise<{ reply: string; ms: 
 export function stripCode(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, "(code removed: you write the code yourself)")
-    .replace(/`([^`]{40,})`/g, "(code removed)");
+    // Long inline code that looks like statements (not prose caught between stray backticks).
+    .replace(/`([^`]{40,})`/g, (m, inner: string) => (/[;{}]|=>|\breturn\b/.test(inner) ? "(code removed)" : m));
 }

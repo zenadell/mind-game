@@ -6,6 +6,7 @@ import { isConfigured } from "@/lib/models";
 import { reviewCounts } from "@/lib/review";
 import { gameState } from "@/lib/game";
 import { PlayerCard } from "@/components/PlayerCard";
+import { trainOverview } from "@/lib/train";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default function Home() {
   const chapters = new Map<string, typeof lessons>();
   for (const l of lessons) chapters.set(l.chapter, [...(chapters.get(l.chapter) ?? []), l]);
   const quizLesson = quiz ? lessons.find((l) => l.quizAfter?.id === quiz.id) : null;
+  const train = trainOverview();
 
   return (
     <main>
@@ -111,6 +113,24 @@ export default function Home() {
             <span className="title">🎓 You finished every lesson!</span>
           </div>
         )}
+
+        {train.next ? (
+          <Link href={`/train/${train.next.id}`} className="plan-card">
+            <span className="step-no">Step 3 · Train</span>
+            <span className="title">🥋 {train.next.title}</span>
+            <span className="muted">
+              A real interview problem ({train.next.difficulty}) using what you’ve learned. {train.totals.solved} solved so far.
+            </span>
+            <span className="go">Solve it →</span>
+          </Link>
+        ) : train.reading.unlocked ? (
+          <Link href="/train/read" className="plan-card">
+            <span className="step-no">Step 3 · Train</span>
+            <span className="title">🔍 Code reading</span>
+            <span className="muted">Predict the output, find the bug, explain the code.</span>
+            <span className="go">Read →</span>
+          </Link>
+        ) : null}
 
         <Link href="/report" className={`plan-card ${isSunday ? "primary" : ""}`}>
           <span className="step-no">{isSunday ? "It’s Sunday" : "Any time"}</span>

@@ -71,6 +71,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS xp_events_key ON xp_events(key) WHERE key IS N
 CREATE TABLE IF NOT EXISTS badges (id TEXT PRIMARY KEY, earned_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS freeze_days (day TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS step_cache (step_id INTEGER NOT NULL, key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY (step_id, key));
+CREATE TABLE IF NOT EXISTS problem_state (
+  problem_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0,
+  hints_json TEXT NOT NULL DEFAULT '[]', solution_shown INTEGER NOT NULL DEFAULT 0, solved_at INTEGER,
+  interview_start INTEGER, interview_ms INTEGER, complexity_ok INTEGER NOT NULL DEFAULT 0, code TEXT,
+  updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS train_cache (key TEXT PRIMARY KEY, json TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS readings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, topic TEXT NOT NULL, code TEXT NOT NULL,
+  question TEXT NOT NULL, options_json TEXT NOT NULL DEFAULT '[]', correct_index INTEGER NOT NULL DEFAULT -1,
+  answer_key TEXT NOT NULL, explain TEXT NOT NULL, answer TEXT, verdict TEXT, feedback TEXT,
+  created_at INTEGER NOT NULL, answered_at INTEGER);
 `;
 
 // Columns added after the first release. Adding one that already exists throws, which is fine.

@@ -10,7 +10,7 @@ import { ReadAloud } from "./Speech";
 type Piece = { key: string; icon: string; title: string; speak: string; body: React.ReactNode };
 
 /** The tutor's from-zero explanation of a section: why, words, how, picture it, code, real life. */
-export function DeepLesson({ title, content: c }: { title: string; content: StepContent }) {
+export function DeepLesson({ title, content: c, noAsk }: { title: string; content: StepContent; noAsk?: boolean }) {
   const [code, setCode] = useState(c.example.lines.map((l) => l.code).join("\n"));
   const pieces: Piece[] = [
     { key: "why", icon: "💡", title: "Why this matters", speak: c.why, body: <p className="big"><InlineMd>{c.why}</InlineMd></p> },
@@ -88,13 +88,13 @@ export function DeepLesson({ title, content: c }: { title: string; content: Step
           {p.body}
           <div className="piece-actions">
             <ReadAloud text={p.speak} label="Listen" />
-            <button
+            {!noAsk && <button
               type="button"
               className="btn ghost"
               onClick={() => askTutor(`I don't fully understand this part of "${title}" (${p.title}): "${p.speak.slice(0, 600)}". Can you explain it more simply, from zero?`)}
             >
               🙋 Still confusing? Ask the tutor
-            </button>
+            </button>}
           </div>
         </div>
       ))}
