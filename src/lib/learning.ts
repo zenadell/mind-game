@@ -1,7 +1,8 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson, stripCode } from "./ai";
-import { NotFound, dayKey, markActive } from "./core";
+import { NotFound, currentStreak, dayKey, markActive } from "./core";
+import { award, mergeEvents, type GameEvent } from "./game";
 import {
   EXERCISE_GRADE_SYSTEM,
   EXPLAIN_SOLUTION_SYSTEM,
@@ -93,7 +94,7 @@ export function stats() {
     .from(schema.apiUsage)
     .get()!;
   const completed = d.select().from(schema.progress).where(eq(schema.progress.status, "completed")).all().length;
-  return { streak: streak(days), costTotal: cost.total, costToday: cost.today, tokensToday: cost.tokensToday, completed };
+  return { streak: currentStreak(), costTotal: cost.total, costToday: cost.today, tokensToday: cost.tokensToday, completed };
 }
 
 function startOfToday(): number {
@@ -246,7 +247,7 @@ export function savePosition(lessonId: string, chunkIndex: number) {
 }
 
 /** Mark the lesson complete when every gate is passed. Returns what is still missing. */
-export function tryComplete(lessonId: string): { completed: boolean; missing: string[] } {
+export function tryComplete(lessonId: string): { completed: boolean; missing: string[]; game?: GameEvent | null } {
   const detail = lessonDetail(lessonId);
   if (!detail) return { completed: false, missing: ["lesson not found"] };
   const missing: string[] = [];
@@ -277,6 +278,7 @@ export function tryComplete(lessonId: string): { completed: boolean; missing: st
         set: { status: "completed", mastery, completedAt: Date.now() },
       })
       .run();
+    return { completed: true, missing: [], game: award("lesson", "Lesson complete!", { key: `lesson:${lessonId}` }) };
   }
   return { completed: true, missing: [] };
 }
@@ -300,7 +302,8 @@ export async function gradeTeachback(lessonId: string, text: string) {
     .values({ lessonId, text, verdict: res.verdict, feedback: res.feedback, createdAt: Date.now() })
     .run();
   markActive();
-  return res;
+  const game = res.verdict === "understood" ? award("teachback", "You taught it back", { key: `teachback:${lessonId}` }) : null;
+  return { ...res, game };
 }
 
 function exerciseRow(id: string) {
@@ -369,7 +372,15 @@ export async function submitAttempt(
     .values({ exerciseId, code, passed, feedback, hintsUsed: s.hintsUsed, createdAt: Date.now() })
     .run();
   markActive();
-  return { passed, feedback, state: publicState(next) };
+  // First time solved: XP, plus a bonus when done without hints or the solution.
+  const game =
+    passed && !s.passed
+      ? mergeEvents([
+          award("exercise", "Exercise solved", { key: `exercise:${exerciseId}` }),
+          s.hintsUsed === 0 && !s.solutionShown ? award("exerciseClean", "No hints!", { key: `exclean:${exerciseId}` }) : null,
+        ])
+      : null;
+  return { passed, feedback, state: publicState(next), game };
 }
 
 export function revealSolution(exerciseId: string) {

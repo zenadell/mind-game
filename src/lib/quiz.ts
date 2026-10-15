@@ -2,6 +2,7 @@ import vm from "node:vm";
 import { asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { ProviderError, askJson } from "./ai";
+import { award, mergeEvents } from "./game";
 import { NotFound, allQuizBlocks, lessonList, markActive } from "./learning";
 import { CANNOT_REPLY, CHECK_SYSTEM, CheckShape, QUIZ_SYSTEM, QuizShape, type QuizQuestion } from "./prompts";
 import { scheduleReview } from "./review";
@@ -167,7 +168,12 @@ export async function submitQuiz(quizId: number, answers: string[]) {
     });
   });
   markActive();
-  return { score, passed, passMark: PASS_MARK, results };
+  const right = results.filter((r) => r.correct).length;
+  const game = mergeEvents([
+    right ? award("quizRight", `${right} hits on the boss`, { key: `quizhits:${quizId}`, amount: right * 10 }) : null,
+    passed ? award("quizWin", "Boss defeated!", { key: `quizwin:${quiz.blockId}` }) : null,
+  ]);
+  return { score, passed, passMark: PASS_MARK, results, game };
 }
 
 export function quizBlockInfo(blockId: string) {

@@ -44,6 +44,7 @@ export function CheckChat({
       const r = await post<Verdict>(`/api/step/${stepId}/check`, { question, answerKey, answer: text, history });
       const next: Turn[] = [...thread, { who: "learner", text }, { who: "tutor", text: r.feedback, verdict: r.verdict }];
       setThread(next);
+      if (r.verdict !== "correct") window.dispatchEvent(new CustomEvent("ct-sound", { detail: "wrong" }));
       if (r.verdict === "correct") onPassed();
       else if (next.filter((t) => t.who === "tutor" && t.verdict && t.verdict !== "correct").length >= MISSES_BEFORE_REEXPLAIN) {
         // Still stuck: the tutor explains it another way, with a new, easier question.
@@ -119,7 +120,7 @@ export function CheckChat({
         <AnswerBox
           key={again ? "again" : "first"}
           placeholder={thread.length ? "Reply to your tutor, in your own words…" : "Type or speak your answer, in your own words…"}
-          submitLabel={thread.length ? "Reply" : "Submit"}
+          submitLabel={thread.length ? "Reply" : "Submit · +20 XP"}
           busy={busy}
           onSubmit={answer}
           clearOnSubmit

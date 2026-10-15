@@ -4,6 +4,8 @@ import { db, schema } from "@/db";
 import { dayKey, lessonList, stats } from "@/lib/learning";
 import { isConfigured } from "@/lib/models";
 import { reviewCounts } from "@/lib/review";
+import { gameState } from "@/lib/game";
+import { PlayerCard } from "@/components/PlayerCard";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,8 @@ export default function Home() {
         <p className="big muted">Today’s plan: review first, then learn something new. 45–90 minutes is perfect.</p>
       </section>
 
+      <PlayerCard initial={gameState()} />
+
       <h2 className="section-title">Today</h2>
       <div className="plan">
         {reviews.due > 0 ? (
@@ -85,10 +89,10 @@ export default function Home() {
 
         {quiz && quizLesson ? (
           <Link href={`/quiz/${quiz.id}`} className={`plan-card ${reviews.due ? "" : "primary"}`}>
-            <span className="step-no">Step 2 · Quiz time</span>
-            <span className="title">Quiz on your last lessons</span>
-            <span className="muted">6 quick questions. Pass with 70% to unlock the next lesson.</span>
-            <span className="go">Take the quiz →</span>
+            <span className="step-no">Step 2 · Boss fight</span>
+            <span className="title">A boss guards the next lessons</span>
+            <span className="muted">6 questions. Bring it to 30% health to unlock what comes next.</span>
+            <span className="go">⚔️ Fight →</span>
           </Link>
         ) : current ? (
           <Link href={`/lesson/${current.id}`} className={`plan-card ${reviews.due ? "" : "primary"}`}>
@@ -186,9 +190,9 @@ function LessonRow({ l, isCurrent }: { l: ReturnType<typeof lessonList>[number];
             {l.quizAfter.status === "passed" ? "✓" : l.quizAfter.status === "locked" ? "?" : "★"}
           </span>
           {l.quizAfter.status === "locked" ? (
-            <span className="muted">Quiz on the lessons above</span>
+            <span className="muted">⚔️ Boss fight: the lessons above</span>
           ) : (
-            <Link href={`/quiz/${l.quizAfter.id}`}>Quiz on the lessons above</Link>
+            <Link href={`/quiz/${l.quizAfter.id}`}>⚔️ Boss fight: the lessons above</Link>
           )}
           <span className="meta">
             {l.quizAfter.status === "available" && <span className="pill warn">ready</span>}

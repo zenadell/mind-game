@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
+import { GameLayer } from "@/components/GameLayer";
 import { NavBar } from "@/components/NavBar";
 import "./globals.css";
 
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <NavBar />
+        <GameLayer />
         <div className="page">{children}</div>
         <footer className="foot">
           Lessons adapted from <a href="https://javascript.info">javascript.info</a> by Ilya Kantor, used under CC BY-NC for

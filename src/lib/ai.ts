@@ -225,6 +225,7 @@ function fakeJson(purpose: string, prompt: string): unknown {
       };
     case "section-help":
       return {
+        hook: { question: "(Offline demo) What do you think this prints?", code: "console.log(1 + 1)", options: ["11", "2", "error"], correct_index: 0, reveal: "1 + 1 is 2." },
         about: "(Offline demo) This section shows how the idea works.",
         words: [{ word: "console", meaning: "A panel where programs write messages." }],
         recap: ["(Offline demo) Key point one.", "Key point two."],

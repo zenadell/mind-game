@@ -148,8 +148,10 @@ export function LessonView(p: Props) {
         )}
 
         {step === 0 && p.goals.length > 0 && !completed && (
-          <div className="card soft tight">
-            <b>In this lesson you’ll learn to:</b>
+          <details className="card soft tight mission">
+            <summary>
+              🎯 <b>Your mission:</b> {p.goals.length} things you’ll be able to do after this lesson
+            </summary>
             <ul className="recap">
               {p.goals.map((g) => (
                 <li key={g}>
@@ -157,7 +159,7 @@ export function LessonView(p: Props) {
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         )}
 
         {step < n && (

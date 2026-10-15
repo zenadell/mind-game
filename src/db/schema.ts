@@ -194,3 +194,22 @@ export const stepCache = sqliteTable("step_cache", {
   key: text("key").notNull(),
   json: text("json").notNull(),
 });
+
+// Game layer: XP, achievements, streak freezes.
+export const xpEvents = sqliteTable("xp_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind").notNull(),
+  key: text("key"), // e.g. "read:12": the same thing never pays twice
+  amount: integer("amount").notNull(),
+  label: text("label").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const badges = sqliteTable("badges", {
+  id: text("id").primaryKey(),
+  earnedAt: integer("earned_at").notNull(),
+});
+
+export const freezeDays = sqliteTable("freeze_days", {
+  day: text("day").primaryKey(), // a missed day covered by a streak freeze
+});

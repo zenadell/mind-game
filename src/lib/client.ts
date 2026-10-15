@@ -10,6 +10,9 @@ export async function post<T>(url: string, body: unknown = {}): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error || "Something went wrong.");
   window.dispatchEvent(new Event("ct-stats"));
+  // Celebrate any XP the action earned (the game layer listens for this).
+  const d = data as { game?: unknown; completion?: { game?: unknown } };
+  for (const g of [d.game, d.completion?.game]) if (g) window.dispatchEvent(new CustomEvent("ct-game", { detail: g }));
   return data as T;
 }
 

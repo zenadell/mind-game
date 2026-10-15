@@ -32,12 +32,29 @@ at the end. Everything the tutor writes is saved, so revisiting is instant and f
 A lesson is complete only when every check, the teach-back, and every exercise pass.
 Lessons unlock in order.
 
+### Making it addictive (in a good way)
+
+Every point you earn comes from a real learning action, so playing the game *is* learning.
+
+- **🤔 Guess first.** Each part opens with a puzzle ("What do you think this prints?"). You
+  guess before reading, then read to find out. Guessing first makes answers stick. Puzzles with
+  code are checked by running the code, so the answer is always right.
+- **⭐ XP and levels**, from Rookie → Script Kid → Bug Hunter → … → Engineer, with confetti, a
+  sound and a level-up screen. Buttons show what each action is worth.
+- **🔥 Combos**: first-try answers in a row multiply your XP (x2 from 3, x3 from 6).
+- **🎯 Daily goal ring** (Casual 50, Regular 100, Serious 200 XP) and a **streak**; every 7 days
+  of streak earns a **❄️ freeze** that saves your streak if you miss one day.
+- **🏆 18 achievements** (First Step, On Fire, No Hints Needed, Boss Slayer, Week Warrior, …).
+- **⚔️ Boss fights**: the quiz after every 3 lessons is a boss. Each right answer is a hit; bring
+  it to 30% health to unlock the next lessons.
+- Sounds can be turned off in the **Aa** menu.
+
 ### Making it stick
 
 - **Daily review** (spaced repetition): any question you miss comes back after 1 day,
   then 3, then 7. Miss it again and it starts over. The home page puts review first.
-- **Quizzes** after every 3 lessons: 6 fresh questions written by the tutor, no hints.
-  Pass with 70% to unlock the next lessons. "What does this code print?" questions are
+- **Boss fights (quizzes)** after every 3 lessons: 6 fresh questions written by the tutor, no
+  hints. Score 70% to unlock the next lessons. "What does this code print?" questions are
   checked by actually running the code, so the answer key is never wrong.
 - **Weekly report**: activity per day, how often you were right first time, and your
   weakest topics to redo every Sunday.
@@ -104,6 +121,7 @@ To keep it low:
 | Spaced-repetition reviews | `src/lib/review.ts` |
 | Quizzes (generation, code-checked answers, grading) | `src/lib/quiz.ts` |
 | Weekly report | `src/lib/report.ts` |
+| XP, levels, combos, daily goal, achievements, streak freezes | `src/lib/game.ts`, `src/components/GameLayer.tsx` |
 | Everything the tutor is told | `src/lib/prompts.ts` |
 | AI calls for any provider, and cost tracking | `src/lib/ai.ts` |
 | Which model does what (Settings + env vars) | `src/lib/models.ts` |

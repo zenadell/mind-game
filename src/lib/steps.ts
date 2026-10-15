@@ -194,16 +194,33 @@ function sectionText(step: typeof schema.steps.$inferSelect): string {
 /** Before/after help for one section: words to know, what it's about, recap, check question. */
 export function sectionHelp(stepId: number): Promise<SectionHelp> {
   const step = stepRow(stepId);
-  return cached(stepId, "help", (j) => SectionHelpShape.parse(j), () =>
-    askJson({
+  return cached(stepId, "help", (j) => SectionHelpShape.parse(j), async () => {
+    const help = await askJson({
       purpose: "section-help",
       role: "tutor",
       system: SECTION_HELP_SYSTEM,
       prompt: `${knownBefore(step)}\n\n${sectionText(step)}`,
       shape: SectionHelpShape,
       maxTokens: 16000,
-    }),
-  );
+    });
+    return { ...help, hook: checkHook(help.hook) };
+  });
+}
+
+/**
+ * A puzzle with code is checked by running the code: the right answer is what it really
+ * prints. If no option matches (or the puzzle is malformed), it is dropped.
+ */
+export function checkHook(hook: SectionHelp["hook"]): SectionHelp["hook"] {
+  if (!hook || hook.options.length < 2) return null;
+  if (hook.code.trim() && /console\.log|alert/.test(hook.code)) {
+    const run = runExample(hook.code);
+    if (!run.ok) return null;
+    const norm = (x: string) => x.trim().replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, " ").toLowerCase();
+    const i = hook.options.findIndex((o) => norm(o) === norm(run.output));
+    return i === -1 ? null : { ...hook, correct_index: i };
+  }
+  return hook.correct_index >= 0 && hook.correct_index < hook.options.length ? hook : null;
 }
 
 /** Code blocks in a section's Markdown, in order (including ones inside > quotes). */

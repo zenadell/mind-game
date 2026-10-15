@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { post } from "@/lib/client";
 import { Choices, CodeSnippet } from "./Choices";
 import { InlineMd } from "./Markdown";
@@ -20,13 +20,62 @@ type Props = {
 };
 
 /** Intro → one question at a time → results. */
+const BOSSES = ["👾", "🐉", "🤖", "👹", "🦖", "🧌", "🦑", "🐙"];
+
+/** Every quiz is a boss: each right answer hits it. Bring its health to 30% or below to win. */
+function bossFor(blockId: string, lastTitle: string) {
+  const h = [...blockId].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  return { emoji: BOSSES[h % BOSSES.length], name: `Guardian of the lessons up to “${lastTitle}”` };
+}
+
+function BossCard({ emoji, name, hp, hit, defeated }: { emoji: string; name: string; hp: number; hit?: boolean; defeated?: boolean }) {
+  return (
+    <div className={`boss ${hit ? "hit" : ""} ${defeated ? "defeated" : ""}`}>
+      <div className="boss-emoji" aria-hidden>
+        {defeated ? "💥" : emoji}
+      </div>
+      <div className="boss-info">
+        <div className="boss-name">{name}</div>
+        <div className="boss-hp" aria-label={`Boss health ${Math.round(hp)}%`}>
+          <span style={{ width: `${hp}%` }} />
+          <i style={{ left: "30%" }} title="Bring it below this line to win" />
+        </div>
+        <div className="small muted">{Math.round(hp)}% health</div>
+      </div>
+    </div>
+  );
+}
+
 export function QuizRunner(p: Props) {
+  const boss = bossFor(p.blockId, p.titles[p.titles.length - 1] ?? "the Lessons");
+  const [hp, setHp] = useState(100);
+  const [hit, setHit] = useState(false);
   const [quiz, setQuiz] = useState<{ quizId: number; questions: Q[] } | null>(null);
   const [i, setI] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [graded, setGraded] = useState<Graded | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // After marking: the boss takes one hit per right answer.
+  useEffect(() => {
+    if (!graded) return;
+    setHp(100);
+    const hits = graded.results.filter((r) => r.correct).length;
+    const per = 100 / graded.results.length;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let k = 1; k <= hits; k++) {
+      timers.push(
+        setTimeout(() => {
+          setHp(Math.max(0, 100 - per * k));
+          setHit(true);
+          window.dispatchEvent(new CustomEvent("ct-sound", { detail: "xp" }));
+          setTimeout(() => setHit(false), 250);
+        }, 500 + k * 450),
+      );
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [graded]);
 
   const start = async () => {
     setBusy("start");
@@ -69,12 +118,18 @@ export function QuizRunner(p: Props) {
   // ----- Results -----
   if (quiz && graded) {
     const pct = Math.round(graded.score * 100);
+    const finalHp = Math.max(0, 100 - pct);
     return (
       <>
         <section className={`card ${graded.passed ? "celebrate" : ""}`} style={{ textAlign: "center" }}>
+          <BossCard emoji={boss.emoji} name={boss.name} hp={hp} hit={hit} defeated={graded.passed && hp <= finalHp} />
           <div className="score">{pct}%</div>
           <h2 style={{ marginTop: 10 }}>
-            {graded.passed ? "You passed! 🎉" : graded.score >= 0.5 ? "Not yet, but you’re close." : "Not yet. Let’s go over it."}
+            {graded.passed
+              ? "Boss defeated! ⚔️🎉"
+              : graded.score >= 0.5
+                ? `So close! The boss survived with ${finalHp}% health.`
+                : `The boss survived with ${finalHp}% health. Let’s train and come back.`}
           </h2>
           <p className="big" style={{ margin: "0 auto" }}>
             {graded.passed
@@ -141,17 +196,18 @@ export function QuizRunner(p: Props) {
   if (!quiz) {
     return (
       <section className="card">
-        <p className="big">This quiz checks the last few lessons:</p>
+        <BossCard emoji={boss.emoji} name={boss.name} hp={100} />
+        <p className="big">A boss guards the next lessons. Beat it with what you learned in:</p>
         <ul className="big">{p.titles.map((t) => <li key={t}>{t}</li>)}</ul>
         <div className="info">
           <p>
-            <b>6 questions</b> · pass with <b>70%</b> · no hints, no tutor. Missed questions go into your daily review.
+            <b>6 questions</b> · each right answer is a hit · bring the boss to <b>30% health</b> or less to win · no hints, no tutor. Missed questions go into your daily review.
           </p>
           {p.status === "passed" && <p>You already passed this one (best {Math.round(p.best * 100)}%). Practising again is fine!</p>}
         </div>
         {error && <p className="error">{error}</p>}
         <button className="btn big-btn" onClick={start} disabled={!!busy}>
-          {busy === "start" ? "Your tutor is writing the quiz… (about 20 seconds)" : "Start the quiz"}
+          {busy === "start" ? "The boss is getting ready… (about 20 seconds)" : "⚔️ Start the fight"}
         </button>
       </section>
     );
@@ -164,6 +220,7 @@ export function QuizRunner(p: Props) {
   const answered = answers[i].trim() !== "";
   return (
     <section className="card step">
+      <BossCard emoji={boss.emoji} name={boss.name} hp={100} />
       <div className="flow-head">
         <span className="step-label">
           Question {i + 1} of {quiz.questions.length}
@@ -196,7 +253,7 @@ export function QuizRunner(p: Props) {
         )}
         {last ? (
           <button className="btn" onClick={submit} disabled={!answered || !!busy}>
-            {busy === "submit" ? "Marking…" : "Finish and see my score"}
+            {busy === "submit" ? "Striking…" : "⚔️ Final strike: see the damage"}
           </button>
         ) : (
           <button className="btn" onClick={() => setI(i + 1)} disabled={!answered}>

@@ -20,7 +20,7 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
       <p className="crumbs">
         <Link href="/">← Learn</Link> · {info.chapter}
       </p>
-      <h1>Quiz time</h1>
+      <h1>⚔️ Boss fight</h1>
       <QuizRunner blockId={info.id} titles={info.titles} status={info.status} best={info.best} nextLesson={info.nextLesson} />
     </main>
   );

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { post } from "@/lib/client";
 import type { SectionHelp, StepContent } from "@/lib/prompts";
 import { CheckChat } from "./CheckChat";
+import { Choices, CodeSnippet } from "./Choices";
 import { DeepLesson, Words } from "./DeepLesson";
 import { InlineMd } from "./Markdown";
 import { OriginalText } from "./OriginalText";
@@ -32,6 +33,7 @@ export function SectionView({
   const [deep, setDeep] = useState<StepContent | null>(null);
   const [deepState, setDeepState] = useState<"closed" | "loading" | "open" | string>("closed");
   const [passed, setPassed] = useState(step.passed);
+  const [guess, setGuess] = useState<number | null>(null);
   const after = useRef<HTMLDivElement>(null);
 
   const loadHelp = async () => {
@@ -49,6 +51,7 @@ export function SectionView({
     setDeepState("closed");
     setRead(step.passed);
     setPassed(step.passed);
+    setGuess(readGuess(step.id));
     loadHelp();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.id]);
@@ -70,8 +73,18 @@ export function SectionView({
     }
   };
 
+  const makeGuess = (i: number) => {
+    if (guess !== null) return;
+    setGuess(i);
+    try {
+      localStorage.setItem(`ct-guess-${step.id}`, String(i));
+    } catch {}
+    post(`/api/game`, { action: "guess", stepId: step.id, choice: i }).catch(() => {});
+  };
+
   const doneReading = () => {
     setRead(true);
+    post(`/api/game`, { action: "read", stepId: step.id }).catch(() => {});
     setTimeout(() => after.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
@@ -89,6 +102,21 @@ export function SectionView({
         <h3>👀 Before you read</h3>
         {help ? (
           <>
+            {help.hook && !read && (
+              <div className="hook">
+                <p className="step-label">🤔 Guess first — then read to find out</p>
+                <p className="big question">
+                  <InlineMd>{help.hook.question}</InlineMd>
+                </p>
+                <CodeSnippet code={help.hook.code} />
+                <Choices options={help.hook.options} selected={guess} onPick={makeGuess} locked={guess !== null} />
+                {guess !== null ? (
+                  <p className="small muted">Locked in! The answer is hidden in the text below. Read on and see if you were right.</p>
+                ) : (
+                  <p className="small muted">No pressure: a guess is worth XP even if it’s wrong. Guessing first makes the answer stick.</p>
+                )}
+              </div>
+            )}
             <p className="big">
               <InlineMd>{help.about}</InlineMd>
             </p>
@@ -130,7 +158,7 @@ export function SectionView({
           </button>
           {!read && (
             <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={doneReading}>
-              I’ve read it →
+              I’ve read it → <span className="xp-tag">+5 XP</span>
             </button>
           )}
         </div>
@@ -147,6 +175,19 @@ export function SectionView({
         <div className="piece" ref={after}>
           {help ? (
             <>
+              {help.hook && (
+                <div className={`hook-reveal ${guess === help.hook.correct_index ? "right" : guess === null ? "" : "wrong"}`}>
+                  <b>
+                    {guess === null
+                      ? "🤔 The puzzle: "
+                      : guess === help.hook.correct_index
+                        ? "🎯 Your guess was right! "
+                        : `🤔 You guessed “${help.hook.options[guess]}”. The answer: `}
+                  </b>
+                  {guess !== help.hook.correct_index && <code>{help.hook.options[help.hook.correct_index]}</code>}{" "}
+                  <InlineMd>{help.hook.reveal}</InlineMd>
+                </div>
+              )}
               {help.recap.length > 0 && (
                 <>
                   <div className="read-head">
@@ -180,4 +221,13 @@ export function SectionView({
       )}
     </section>
   );
+}
+
+function readGuess(stepId: number): number | null {
+  try {
+    const v = localStorage.getItem(`ct-guess-${stepId}`);
+    return v === null ? null : Number(v);
+  } catch {
+    return null;
+  }
 }

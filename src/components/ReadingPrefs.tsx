@@ -27,11 +27,13 @@ export function ReadingPrefs() {
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState("m");
   const [rate, setRate] = useState(0.95);
+  const [sound, setSound] = useState(true);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSize(read("ct-size", "m"));
     setRate(Number(read("ct-rate", "0.95")));
+    setSound(read("ct-sound", "on") !== "off");
   }, []);
   useEffect(() => {
     if (!open) return;
@@ -64,7 +66,7 @@ export function ReadingPrefs() {
 
   return (
     <div className="prefs" ref={box}>
-      <button type="button" className="btn ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Reading settings" title="Reading settings">
+      <button type="button" className="btn ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Reading and sound settings" title="Reading and sound settings">
         Aa
       </button>
       {open && (
@@ -74,6 +76,24 @@ export function ReadingPrefs() {
             {SIZES.map((s, i) => (
               <button key={s.id} className={size === s.id ? "on" : ""} onClick={() => pickSize(s.id)} title={s.title} style={{ fontSize: `${0.8 + i * 0.18}rem` }}>
                 {s.label}
+              </button>
+            ))}
+          </div>
+          <h4>Sounds</h4>
+          <div className="seg">
+            {[
+              ["on", "🔊 On"],
+              ["off", "🔇 Off"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                className={(sound ? "on" : "off") === id ? "on" : ""}
+                onClick={() => {
+                  setSound(id === "on");
+                  write("ct-sound", id);
+                }}
+              >
+                {label}
               </button>
             ))}
           </div>

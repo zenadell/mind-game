@@ -2,6 +2,7 @@ import { and, asc, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { askJson } from "./ai";
 import { dayKey, markActive } from "./core";
+import { award } from "./game";
 import { CANNOT_REPLY, CHECK_SYSTEM, CheckShape } from "./prompts";
 
 // Spaced repetition: anything answered wrong comes back after 1 day, then 3, then 7.
@@ -121,5 +122,8 @@ export async function answerReview(id: number, answer: string) {
   d.update(schema.reviews).set(next).where(eq(schema.reviews.id, id)).run();
   d.insert(schema.reviewLog).values({ reviewId: id, answer, correct, createdAt: Date.now() }).run();
   markActive();
-  return { correct, feedback, done: next.done, nextDay: next.done ? null : next.dueDay };
+  const game = correct
+    ? award("reviewRight", "Remembered!", { key: `review:${id}:${r.stage}` })
+    : award("reviewTry", "Good try", { key: `reviewtry:${id}:${today}` });
+  return { correct, feedback, done: next.done, nextDay: next.done ? null : next.dueDay, game };
 }

@@ -193,9 +193,19 @@ Return JSON:
 - "words": every technical word, symbol or name in this section that a complete beginner may not know and that was not taught in an earlier lesson or section, in the order they appear. "meaning" is one or two plain sentences. Include symbols used in its code (like ; or => or ===) when they are new.
 - "recap": 3-7 short bullet points shown AFTER they read: the section's key points in plain English. Keep the important details and the "watch out" cases; don't just summarise the topic name.
 - "question": ONE check question about the most important idea of this section, answerable in a sentence or two. Ask about understanding (why / what happens), not trivia.
-- "answer_key": the correct answer and what a good answer must contain (the learner does not see this).`;
+- "answer_key": the correct answer and what a good answer must contain (the learner does not see this).
+- "hook": a short, intriguing puzzle shown BEFORE reading, that this section answers, so they read to find out if they were right. Make it surprising or fun, never trivia ("What do you think this prints?", "Which of these will break?", "Why would a browser block this?"). "code" is a tiny snippet (max 5 lines, prints with console.log) or "". "options": 3 or 4 short answers. "correct_index": the right one. "reveal": 1-2 sentences shown after reading that explain the answer.`;
+
+export const HookShape = z.object({
+  question: z.string(),
+  code: z.string().default(""),
+  options: z.array(z.string()),
+  correct_index: z.number().int(),
+  reveal: z.string(),
+});
 
 export const SectionHelpShape = z.object({
+  hook: HookShape.nullable().default(null),
   about: z.string(),
   words: z.array(z.object({ word: z.string(), meaning: z.string() })).default([]),
   recap: z.array(z.string()).default([]),

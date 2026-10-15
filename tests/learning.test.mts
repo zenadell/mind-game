@@ -70,6 +70,7 @@ test("lessons unlock in order and completion needs every gate", async () => {
   const r = await L.submitAttempt("ex1", "code", { testsPassed: true });
   assert.equal(r.passed, true);
 
-  assert.deepEqual(L.tryComplete("a"), { completed: true, missing: [] });
+  const done = L.tryComplete("a");
+  assert.deepEqual([done.completed, done.missing, done.game?.gained], [true, [], 100]); // +100 XP for the lesson
   assert.deepEqual(L.lessonList().map((l) => l.status), ["completed", "available"]);
 });
